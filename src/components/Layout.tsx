@@ -1,0 +1,20 @@
+import type { ReactNode } from 'react'
+import { Outlet } from 'react-router'
+import Navbar from './Navbar'
+import Footer from './Footer'
+
+interface LayoutProps {
+  children?: ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <div className="min-h-[100dvh] flex flex-col">
+      <Navbar />
+      <main className="flex-1">
+        {children ?? <Outlet />}
+      </main>
+      <Footer />
+    </div>
+  )
+}

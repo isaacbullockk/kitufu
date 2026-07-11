@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Kitufu custom tokens */
+    --african-sunset: #FF6B35;
+    --earth-red: #C73E1D;
+    --savanna-gold: #F5A623;
+    --deep-forest: #1B4332;
+    --teal-depth: #2A9D8F;
+    --warm-sand: #FFF8F0;
+    --cream: #FFF2E6;
+    --charcoal: #1A1A2E;
+    --slate: #4A5568;
+    --light-grey: #E2E8F0;
+    --kampala-sky: #E07A5F;
+    --hoima-blue: #3D5A80;
+
+    /* Easing tokens */
+    --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-sunset text-white rounded-lg px-7 py-3.5 font-body font-semibold text-base border-none transition-all duration-200;
+  }
+  .btn-primary:hover {
+    @apply bg-[#E55A2B] -translate-y-0.5;
+    box-shadow: 0 4px 12px rgba(255,107,53,0.3);
+  }
+  .btn-primary:active {
+    @apply translate-y-0;
+    box-shadow: 0 2px 6px rgba(255,107,53,0.2);
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-sunset border-2 border-sunset rounded-lg px-6 py-3 font-body font-semibold text-base transition-all duration-200;
+  }
+  .btn-secondary:hover {
+    @apply bg-sunset text-white;
+  }
+
+  .btn-sunset-gradient {
+    @apply rounded-lg px-8 py-4 font-display font-bold text-lg text-white border-none transition-all duration-200;
+    background: linear-gradient(90deg, #FF6B35 0%, #F5A623 100%);
+    box-shadow: 0 4px 16px rgba(255,107,53,0.35);
+  }
+  .btn-sunset-gradient:hover {
+    filter: brightness(1.05);
+    box-shadow: 0 6px 20px rgba(255,107,53,0.45);
+  }
+
+  .text-gradient-sunset {
+    background: linear-gradient(90deg, #FF6B35 0%, #F5A623 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lubugo-bg {
+    background-image: url('/lubugo-pattern.svg');
+    background-repeat: repeat;
+    background-size: 400px 400px;
+  }
+
+  .hero-gradient-overlay {
+    background: linear-gradient(180deg, rgba(26,26,46,0.7) 0%, rgba(26,26,46,0.4) 50%, rgba(27,67,50,0.8) 100%);
+  }
+
+  .sunset-gradient {
+    background: linear-gradient(90deg, #FF6B35 0%, #F5A623 100%);
+  }
+
+  .dark-overlay {
+    background: linear-gradient(180deg, rgba(26,26,46,0.7) 0%, rgba(26,26,46,0.3) 100%);
+  }
+
+  .section-padding {
+    @apply py-16 md:py-20 lg:py-24;
+  }
+
+  .container-kitufu {
+    @apply max-w-[1280px] mx-auto px-6 lg:px-12;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
