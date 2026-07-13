@@ -86,3 +86,47 @@ export const hostProfiles = mysqlTable("hostProfiles", {
 
 export type HostProfile = typeof hostProfiles.$inferSelect;
 export type InsertHostProfile = typeof hostProfiles.$inferInsert;
+
+
+export const groupEnquiries = mysqlTable("groupEnquiries", {
+  id: serial("id"),
+  groupName: varchar("groupName", { length: 255 }).notNull(),
+  contactName: varchar("contactName", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  groupSize: int("groupSize").notNull(),
+  preferredCity: varchar("preferredCity", { length: 100 }),
+  checkIn: date("checkIn"),
+  checkOut: date("checkOut"),
+  budgetPerPerson: int("budgetPerPerson"),
+  requirements: text("requirements"),
+  status: mysqlEnum("status", ["new", "contacted", "quoted", "confirmed", "declined"]).default("new"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type GroupEnquiry = typeof groupEnquiries.$inferSelect;
+export type InsertGroupEnquiry = typeof groupEnquiries.$inferInsert;
+
+export const availability = mysqlTable("availability", {
+  id: serial("id"),
+  propertyId: bigint("propertyId", { mode: "number", unsigned: true }).notNull(),
+  date: date("date").notNull(),
+  isBooked: tinyint("isBooked").default(0).notNull(),
+  bookingId: bigint("bookingId", { mode: "number", unsigned: true }),
+});
+
+export type Availability = typeof availability.$inferSelect;
+export type InsertAvailability = typeof availability.$inferInsert;
+
+export const emailLogs = mysqlTable("emailLogs", {
+  id: serial("id"),
+  to: varchar("to", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  bookingId: bigint("bookingId", { mode: "number", unsigned: true }),
+  status: mysqlEnum("status", ["sent", "failed"]).default("sent"),
+  messageId: varchar("messageId", { length: 100 }),
+  sentAt: timestamp("sentAt").defaultNow(),
+});
+
+export type EmailLog = typeof emailLogs.$inferSelect;
+export type InsertEmailLog = typeof emailLogs.$inferInsert;
