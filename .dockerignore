@@ -1,5 +1,29 @@
-node_modules
-dist
+# Git
 .git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+
+# Build output (rebuilt in container)
+dist
+
+# Env (provided by Railway at runtime)
+.env
+.env.example
+
+# Documentation
+README.md
+RAILWAY-GUIDE.md
+RAILWAY-DEPLOY.md
+info.md
+
+# IDE
+.vscode
+.idea
 *.swp
-*.log
+
+# OS
+.DS_Store
+Thumbs.db
