@@ -8,10 +8,6 @@ import { groupBookingRouter } from "./group-booking-router";
 import { countryRouter } from "./country-router";
 import { createRouter, publicQuery } from "./middleware";
 
-import { uploadRouter } from "./upload-router";
-import { groupBookingRouter } from "./group-booking-router";
-import { countryRouter } from "./country-router";
-
 export const appRouter = createRouter({
   // Health check for Railway
   health: publicQuery.query(() => ({ 
@@ -20,9 +16,9 @@ export const appRouter = createRouter({
     version: "1.0.0",
     ts: Date.now() 
   })),
-  
+
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
-  
+
   auth: authRouter,
   property: propertyRouter,
   booking: bookingRouter,
@@ -31,8 +27,6 @@ export const appRouter = createRouter({
   upload: uploadRouter,
   groupBooking: groupBookingRouter,
   country: countryRouter,
-  upload: uploadRouter,
-  groupBooking: groupBookingRouter,
 });
 
 export type AppRouter = typeof appRouter;
