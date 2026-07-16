@@ -327,7 +327,7 @@ export const DEFAULT_COUNTRY = "uganda";
 
 export function getCountry(id: string): CountryConfig {
   const country = COUNTRY_LIST.find((c) => c.id === id);
-  if (!country) throw new Error(`Country not found: ${id}`);
+  if (!country) throw new Error("Country not found: " + id);
   return country;
 }
 
