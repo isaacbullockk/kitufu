@@ -29,7 +29,7 @@ export const uploadRouter = createRouter({
         }
         return {
           url: input.file,
-          publicId: `kitufu-${Date.now()}`,
+          publicId: "kitufu-" + Date.now(),
         };
       } catch (err: any) {
         if (err instanceof TRPCError) throw err;
