@@ -49,7 +49,7 @@ export const countryRouter = createRouter({
       } catch (err: any) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Country '${input.id}' not found`,
+          message: "Country '" + input.id + "' not found",
         });
       }
     }),
