@@ -31,7 +31,7 @@ export const groupBookingRouter = createRouter({
       } catch (err: any) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Enquiry submission failed: ${err.message}`,
+          message: "Enquiry submission failed: " + err.message,
         });
       }
     }),
