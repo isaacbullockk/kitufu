@@ -52,7 +52,7 @@ export const hostRouter = createRouter({
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Host registration failed: ${err.message}`,
+          message: "Host registration failed: " + err.message,
         });
       }
     }),
