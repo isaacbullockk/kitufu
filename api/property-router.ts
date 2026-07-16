@@ -66,7 +66,7 @@ export const propertyRouter = createRouter({
         if (result.length === 0) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: `Property ${input.id} not found`,
+            message: "Property " + input.id + " not found",
           });
         }
 
@@ -106,7 +106,7 @@ export const propertyRouter = createRouter({
 
         // Validate owner exists
         const owner = await db
-          .select({ id: sql<number>`1` })
+          .select({ id: sql<number>"1" })
           .from(sql`users`)
           .where(sql`id = ${input.ownerId}`)
           .limit(1);
@@ -129,7 +129,7 @@ export const propertyRouter = createRouter({
       } catch (err: any) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to create property: ${err.message}`,
+          message: "Failed to create property: " + err.message,
         });
       }
     }),
