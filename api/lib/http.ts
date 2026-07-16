@@ -26,7 +26,7 @@ export class HttpClient {
       ...rest
     } = config;
 
-    const url = new URL(`${this.baseUrl}${endpoint}`);
+    const url = new URL(this.baseUrl + endpoint);
     if (params) {
       Object.entries(params).forEach(([key, value]) =>
         url.searchParams.append(key, value.toString()),
@@ -51,7 +51,7 @@ export class HttpClient {
         const errorData = (await response
           .json()
           .catch(() => ({}))) as Record<string, string>;
-        throw new Error(errorData.message || `HTTP Error: ${response.status}`);
+        throw new Error(errorData.message || ("HTTP Error: " + response.status));
       }
 
       return (await response.json()) as T;
