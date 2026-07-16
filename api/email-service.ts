@@ -18,9 +18,9 @@ export async function sendEmail({
   bookingId?: number;
 }): Promise<{ success: boolean; messageId: string }> {
   // Log the email (simulated)
-  console.log(`[EMAIL] ${type} to ${to}`, data);
+  console.log("[EMAIL] " + type + " to " + to, data);
 
-  const messageId = `kitufu-email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const messageId = "kitufu-email-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 
   // Log to database
   try {
