@@ -107,6 +107,23 @@ const CREATE_REVIEWS = `CREATE TABLE IF NOT EXISTS reviews (
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`;
 
+
+const CREATE_SITECONFIG = `CREATE TABLE IF NOT EXISTS siteConfig (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  key_name VARCHAR(100) NOT NULL UNIQUE,
+  value TEXT,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)`;
+
+const CREATE_PROPERTY_TYPES = `CREATE TABLE IF NOT EXISTS propertyTypes (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  label VARCHAR(100) NOT NULL,
+  description TEXT,
+  icon VARCHAR(50),
+  isActive TINYINT DEFAULT 1,
+  sortOrder INT DEFAULT 0
+)`;
 const CREATE_EMAIL_LOGS = `CREATE TABLE IF NOT EXISTS emailLogs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   to_email VARCHAR(255) NOT NULL,
@@ -129,6 +146,8 @@ export async function autoSeed() {
   await ensureTable(db, "availability", CREATE_AVAILABILITY);
   await ensureTable(db, "groupEnquiries", CREATE_GROUP_ENQUIRIES);
   await ensureTable(db, "emailLogs", CREATE_EMAIL_LOGS);
+  await ensureTable(db, "siteConfig", CREATE_SITECONFIG);
+  await ensureTable(db, "propertyTypes", CREATE_PROPERTY_TYPES);
   await ensureTable(db, "reviews", CREATE_REVIEWS);
 
   // Check if properties already seeded
