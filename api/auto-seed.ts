@@ -94,6 +94,19 @@ const CREATE_GROUP_ENQUIRIES = `CREATE TABLE IF NOT EXISTS groupEnquiries (
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`;
 
+
+
+const CREATE_REVIEWS = `CREATE TABLE IF NOT EXISTS reviews (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  propertyId BIGINT UNSIGNED NOT NULL,
+  userId BIGINT UNSIGNED NOT NULL,
+  userName VARCHAR(255) NOT NULL,
+  userType ENUM(\'guest\', \'host\') NOT NULL,
+  rating INT NOT NULL,
+  comment TEXT NOT NULL,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`;
+
 const CREATE_EMAIL_LOGS = `CREATE TABLE IF NOT EXISTS emailLogs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   to_email VARCHAR(255) NOT NULL,
@@ -116,6 +129,7 @@ export async function autoSeed() {
   await ensureTable(db, "availability", CREATE_AVAILABILITY);
   await ensureTable(db, "groupEnquiries", CREATE_GROUP_ENQUIRIES);
   await ensureTable(db, "emailLogs", CREATE_EMAIL_LOGS);
+  await ensureTable(db, "reviews", CREATE_REVIEWS);
 
   // Check if properties already seeded
   const existing = await db.select({ count: sql<number>`count(*)` }).from(properties);
