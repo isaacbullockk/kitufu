@@ -53,9 +53,13 @@ export default app;
 if (process.env.NODE_ENV === "production") {
   const { serve } = await import("@hono/node-server");
   const port = parseInt(process.env.PORT || "3000");
-
+  
+  console.log("[BOOT] Starting Kitufu server...");
+  console.log("[BOOT] PORT env:", process.env.PORT);
+  console.log("[BOOT] NODE_ENV:", process.env.NODE_ENV);
+  
   serve({ fetch: app.fetch, port }, () => {
-    console.log("[BOOT] Kitufu server port " + port);
+    console.log("[BOOT] Kitufu server listening on port " + port);
   });
 
   // Seed database in background (non-blocking)
@@ -63,6 +67,7 @@ if (process.env.NODE_ENV === "production") {
     const { autoSeed } = await import("./auto-seed");
     autoSeed().then(() => console.log("[BOOT] Auto-seed done")).catch((e: any) => console.log("[BOOT] Auto-seed:", e.message));
   } catch (e: any) {
-    console.log("[BOOT] Auto-seed not loaded:", e.message);
+     console.log("[BOOT] Auto-seed not loaded: ", e.message);
   }
 }
+
