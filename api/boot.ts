@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { serveStatic } from "@hono/node-server/serve-static";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
@@ -23,44 +24,45 @@ app.use("/api/trpc/*", async (c) => {
   });
 });
 
+// Static assets (built JS/CSS from Vite)
+app.use("/assets/*", serveStatic({ root: "./dist/public" }));
+
+// Static files from public/ (images, sitemap, etc.)
+app.use("/*", serveStatic({ root: "./public" }));
+
+// SPA fallback — serve index.html for all non-API routes
+app.get("*", async (c, next) => {
+  const path = c.req.path;
+  if (path.startsWith("/api")) return next();
+  // Try to serve index.html from built frontend
+  try {
+    const fs = await import("node:fs");
+    const html = fs.readFileSync("./dist/public/index.html", "utf-8");
+    return c.html(html);
+  } catch {
+    // Frontend not built yet — return API status
+    return c.json({ status: "ok", service: "kitufu", note: "frontend building" });
+  }
+});
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
 
-// Start server
+// Start server in production
 if (process.env.NODE_ENV === "production") {
   const { serve } = await import("@hono/node-server");
   const port = parseInt(process.env.PORT || "3000");
 
-  // Start server IMMEDIATELY (healthcheck must pass)
   serve({ fetch: app.fetch, port }, () => {
     console.log("[BOOT] Kitufu server port " + port);
   });
 
-  // Seed database in background (non-blocking, fire-and-forget)
+  // Seed database in background (non-blocking)
   try {
     const { autoSeed } = await import("./auto-seed");
-    autoSeed().then(() => console.log("[BOOT] Auto-seed done")).catch((e: any) => console.log("[BOOT] Auto-seed skipped:", e.message));
+    autoSeed().then(() => console.log("[BOOT] Auto-seed done")).catch((e: any) => console.log("[BOOT] Auto-seed:", e.message));
   } catch (e: any) {
-    console.log("[BOOT] Auto-seed module not loaded:", e.message);
-  }
-
-  // Serve static files (frontend SPA)
-  try {
-    const { serveStaticFiles } = await import("./lib/vite");
-    serveStaticFiles(app);
-  } catch (e: any) {
-    console.log("[BOOT] Static files not served:", e.message);
-    // Fallback: serve index.html for SPA routes
-    app.get("*", async (c, next) => {
-      const path = c.req.path;
-      if (path.startsWith("/api") || path.startsWith("/assets")) return next();
-      try {
-        const file = await import("node:fs").then(m => m.readFileSync("./dist/public/index.html", "utf-8"));
-        return c.html(file);
-      } catch {
-        return c.json({ status: "ok", service: "kitufu", note: "frontend not built yet" }, 200);
-      }
-    });
+    console.log("[BOOT] Auto-seed not loaded:", e.message);
   }
 }
