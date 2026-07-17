@@ -8,6 +8,7 @@ import { groupBookingRouter } from "./group-booking-router";
 import { countryRouter } from "./country-router";
 import { reviewRouter } from "./review-router";
 import { configRouter } from "./config-router";
+import { paymentRouter } from "./payment-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -31,6 +32,7 @@ export const appRouter = createRouter({
   country: countryRouter,
   review: reviewRouter,
   config: configRouter,
+  payment: paymentRouter,
 });
 
 export type AppRouter = typeof appRouter;
