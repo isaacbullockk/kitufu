@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router'
+import { useParams, Link, useNavigate } from 'react-router'
+import { trpc } from '@/providers/trpc'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Check, ChevronLeft, ChevronRight, Calendar, Clock, Bus,
@@ -798,11 +799,24 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
       {/* CTA */}
       <Button
         className="w-full btn-sunset-gradient animate-pulse-cta text-lg py-5 mb-3"
-        disabled={!state.termsAccepted}
-        onClick={() => update({ step: 5 })}
+        disabled={!state.termsAccepted || createBooking.isPending}
+        onClick={() => {
+          createBooking.mutate({
+            propertyId: parseInt(id || '0'),
+            userId: 1,
+            checkIn: state.checkIn?.toISOString().split('T')[0] || '',
+            checkOut: state.checkOut?.toISOString().split('T')[0] || '',
+            adults: state.adults,
+            children: state.children,
+            roomType: state.roomType === 'multi-share' ? 'multi_share' : state.roomType,
+            totalPrice: Math.round(parseFloat(prices.total) * 1000) || 50000,
+            addShuttle: state.shuttle ? 1 : 0,
+            seasonPass: state.seasonPass ? 1 : 0,
+          })
+        }}
       >
         <LockIcon size={18} className="mr-2" />
-        Confirm Booking
+        {createBooking.isPending ? 'Processing...' : 'Confirm & Pay'}
       </Button>
       <p className="text-xs text-slate text-center mb-2">You will be charged ${prices.total}</p>
       <div className="flex items-center justify-center gap-1 text-xs text-slate">
@@ -1121,14 +1135,28 @@ export default function Booking() {
     termsAccepted: false,
   })
 
+  const navigate = useNavigate()
+
+  const createBooking = trpc.booking.create.useMutation({
+    onSuccess: (data) => {
+      navigate('/payment?ref=' + data.bookingRef)
+    },
+  })
+
   const update = (partial: Partial<BookingState>) => setState(s => ({ ...s, ...partial }))
 
-  // Show confirmation screen
+  // After booking creation, redirect to payment
+  // (handled by createBooking onSuccess, but safety fallback here)
   if (state.step === 5) {
     return (
-      <div className="min-h-[100dvh] bg-warm-sand">
-        <BookingConfirmation />
-        <TrustSection />
+      <div className="min-h-[100dvh] bg-deep-forest flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white text-lg mb-2">Booking created!</p>
+          <p className="text-gray-400 text-sm mb-4">Redirecting to payment...</p>
+          <button onClick={() => window.location.reload()} className="text-savanna-gold hover:underline text-sm">
+            Click here if not redirected
+          </button>
+        </div>
       </div>
     )
   }
