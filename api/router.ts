@@ -6,6 +6,7 @@ import { adminRouter } from "./admin-router";
 import { uploadRouter } from "./upload-router";
 import { groupBookingRouter } from "./group-booking-router";
 import { countryRouter } from "./country-router";
+import { reviewRouter } from "./review-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -27,6 +28,7 @@ export const appRouter = createRouter({
   upload: uploadRouter,
   groupBooking: groupBookingRouter,
   country: countryRouter,
+  review: reviewRouter,
 });
 
 export type AppRouter = typeof appRouter;
