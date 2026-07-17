@@ -9,7 +9,6 @@ const navLinks = [
   { label: 'Nightlife', href: '/nightlife', icon: Music },
   { label: 'Group Booking', href: '/group-booking' },
   { label: 'AFCON 2027', href: '/afcon-2027' },
-  { label: 'Host', href: '/host' },
 ]
 
 export default function Navbar() {
@@ -83,7 +82,7 @@ export default function Navbar() {
         </div>
 
         {/* Desktop CTA + Dashboard */}
-        <div className="hidden lg:flex items-center gap-4">
+        <div className="hidden lg:flex items-center gap-4 ml-4">
           <Link
             to="/dashboard"
             className={`font-body font-medium text-sm transition-colors duration-200 ${
