@@ -27,20 +27,18 @@ app.use("/api/trpc/*", async (c) => {
 // Static assets (built JS/CSS from Vite)
 app.use("/assets/*", serveStatic({ root: "./dist/public" }));
 
-// Static files from public/ (images, sitemap, etc.)
+// Static files from public/
 app.use("/*", serveStatic({ root: "./public" }));
 
-// SPA fallback — serve index.html for all non-API routes
+// SPA fallback
 app.get("*", async (c, next) => {
   const path = c.req.path;
   if (path.startsWith("/api")) return next();
-  // Try to serve index.html from built frontend
   try {
     const fs = await import("node:fs");
     const html = fs.readFileSync("./dist/public/index.html", "utf-8");
     return c.html(html);
   } catch {
-    // Frontend not built yet — return API status
     return c.json({ status: "ok", service: "kitufu", note: "frontend building" });
   }
 });
@@ -51,23 +49,42 @@ export default app;
 
 // Start server in production
 if (process.env.NODE_ENV === "production") {
-  const { serve } = await import("@hono/node-server");
-  const port = parseInt(process.env.PORT || "3000");
-  
-  console.log("[BOOT] Starting Kitufu server...");
-  console.log("[BOOT] PORT env:", process.env.PORT);
-  console.log("[BOOT] NODE_ENV:", process.env.NODE_ENV);
-  
-  serve({ fetch: app.fetch, port }, () => {
-    console.log("[BOOT] Kitufu server listening on port " + port);
-  });
+  console.log("[BOOT] Kitufu starting... NODE_ENV=" + process.env.NODE_ENV);
+  console.log("[BOOT] PORT env=" + process.env.PORT);
 
-  // Seed database in background (non-blocking)
   try {
-    const { autoSeed } = await import("./auto-seed");
-    autoSeed().then(() => console.log("[BOOT] Auto-seed done")).catch((e: any) => console.log("[BOOT] Auto-seed:", e.message));
+    const { serve } = await import("@hono/node-server");
+    const port = parseInt(process.env.PORT || "3000");
+    console.log("[BOOT] Using port=" + port);
+
+    serve({ fetch: app.fetch, port }, () => {
+      console.log("[BOOT] Kitufu server LISTENING on port " + port);
+    });
+    console.log("[BOOT] serve() called successfully");
   } catch (e: any) {
-     console.log("[BOOT] Auto-seed not loaded: ", e.message);
+    console.error("[BOOT] FATAL: serve() failed:", e.message);
+    console.error(e.stack);
+    process.exit(1);
   }
+
+  // Seed database in background
+  setTimeout(async () => {
+    try {
+      console.log("[BOOT] Loading auto-seed...");
+      const { autoSeed } = await import("./auto-seed");
+      console.log("[BOOT] auto-seed imported, running...");
+      await autoSeed();
+      console.log("[BOOT] Auto-seed DONE");
+    } catch (e: any) {
+      console.log("[BOOT] Auto-seed error:", e.message);
+    }
+  }, 100);
 }
 
+// Catch all unhandled errors
+process.on("uncaughtException", (err) => {
+  console.error("[BOOT] UNCAUGHT EXCEPTION:", err);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("[BOOT] UNHANDLED REJECTION:", err);
+});
