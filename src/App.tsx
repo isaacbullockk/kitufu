@@ -14,6 +14,7 @@ import Nightlife from './pages/Nightlife'
 import AddProperty from './pages/AddProperty'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminSettings from './pages/AdminSettings'
+import PaymentPage from './pages/PaymentPage'
 import Login from "./pages/Login"
 import NotFound from "./pages/NotFound"
 
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/nightlife" element={<Nightlife />} />
         <Route path="/add-property" element={<AddProperty />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
       </Route>
       <Route path="/login" element={<Login />} />
