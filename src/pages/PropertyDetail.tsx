@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import useEmblaCarousel from 'embla-carousel-react'
 import { trpc } from '@/providers/trpc'
+import ReviewsSection from '@/components/ReviewsSection'
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -1047,6 +1048,16 @@ export default function PropertyDetail() {
     { enabled: !!id && !isNaN(Number(id)) }
   )
 
+  /* Reviews query */
+  const { data: reviewsData } = trpc.review.list.useQuery(
+    { propertyId: Number(id) },
+    { enabled: !!id && !isNaN(Number(id)) }
+  )
+  const { data: reviewStats } = trpc.review.stats.useQuery(
+    { propertyId: Number(id) },
+    { enabled: !!id && !isNaN(Number(id)) }
+  )
+
   /* Map to UI type */
   const property: UiPropertyDetail | null = rawProperty ? mapDbToUi(rawProperty) : null
 
@@ -1071,7 +1082,8 @@ export default function PropertyDetail() {
   }
 
   const visibleAmenities = showAllAmenities ? property.amenities : property.amenities.slice(0, 9)
-  const visibleReviews = showAllReviews ? REVIEWS.items : REVIEWS.items.slice(0, 3)
+  const realReviews = (reviewsData || []).map((r: any) => ({ id: r.id, name: r.userName, date: new Date(r.createdAt).toLocaleDateString(), rating: r.rating, text: r.comment, helpful: 0, avatar: r.userType === 'host' ? 'host' : 'guest' }))
+  const visibleReviews = showAllReviews ? realReviews : realReviews.slice(0, 3)
 
   return (
     <div className="min-h-[100dvh] bg-white">
@@ -1292,15 +1304,15 @@ export default function PropertyDetail() {
               >
                 <h2 className="font-display text-2xl font-bold text-deep-forest mb-6">Reviews</h2>
                 <RatingBreakdown
-                  rating={property.rating}
-                  reviewCount={property.reviewCount}
+                  rating={reviewStats?.average || property.rating}
+                  reviewCount={reviewStats?.count || property.reviewCount}
                   breakdown={REVIEWS.breakdown}
                 />
 
                 <div className="mt-8 space-y-6">
-                  {visibleReviews.map((review) => (
+                  {visibleReviews.length > 0 ? visibleReviews.map((review) => (
                     <ReviewCard key={review.id} review={review} />
-                  ))}
+                  )) : <p className="text-slate text-sm">No reviews yet. Be the first to review after your stay!</p>}
                 </div>
 
                 {!showAllReviews && (
@@ -1308,7 +1320,7 @@ export default function PropertyDetail() {
                     onClick={() => setShowAllReviews(true)}
                     className="mt-6 btn-secondary"
                   >
-                    Show All {property.reviewCount} Reviews
+                    Show All {reviewStats?.count || property.reviewCount} Reviews
                   </button>
                 )}
               </motion.div>
