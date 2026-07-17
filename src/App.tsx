@@ -11,6 +11,7 @@ import AfconInfo from './pages/AfconInfo'
 import Explore from './pages/Explore'
 import Dining from './pages/Dining'
 import Nightlife from './pages/Nightlife'
+import AddProperty from './pages/AddProperty'
 import Login from "./pages/Login"
 import NotFound from "./pages/NotFound"
 
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/dining" element={<Dining />} />
         <Route path="/nightlife" element={<Nightlife />} />
+        <Route path="/add-property" element={<AddProperty />} />
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="*" element={<NotFound />} />
