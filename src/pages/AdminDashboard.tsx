@@ -28,6 +28,7 @@ import {
   Inbox,
   ShieldAlert,
   ChevronLeft,
+  Settings,
   ChevronRight,
   BarChart3,
 } from 'lucide-react'
@@ -482,9 +483,18 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-warm-sand">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-charcoal">Admin Dashboard</h1>
-          <p className="mt-1 text-slate">Manage properties, bookings, and platform analytics.</p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-charcoal">Admin Dashboard</h1>
+            <p className="mt-1 text-slate">Manage properties, bookings, and platform analytics.</p>
+          </div>
+          <a
+            href="/admin/settings"
+            className="flex items-center gap-2 rounded-lg bg-deep-forest px-4 py-2.5 text-sm font-medium text-white hover:bg-deep-forest/90 transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            Site Settings
+          </a>
         </div>
 
         {/* Tabs */}
