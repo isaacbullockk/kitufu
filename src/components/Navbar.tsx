@@ -10,7 +10,6 @@ const navLinks = [
   { label: 'Group Booking', href: '/group-booking' },
   { label: 'AFCON 2027', href: '/afcon-2027' },
   { label: 'Host', href: '/host' },
-  { label: 'Admin', href: '/admin' },
 ]
 
 export default function Navbar() {
