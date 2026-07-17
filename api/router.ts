@@ -9,6 +9,7 @@ import { countryRouter } from "./country-router";
 import { reviewRouter } from "./review-router";
 import { configRouter } from "./config-router";
 import { paymentRouter } from "./payment-router";
+import { stripeRouter } from "./stripe-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -33,6 +34,7 @@ export const appRouter = createRouter({
   review: reviewRouter,
   config: configRouter,
   payment: paymentRouter,
+  stripe: stripeRouter,
 });
 
 export type AppRouter = typeof appRouter;
