@@ -130,3 +130,18 @@ export const emailLogs = mysqlTable("emailLogs", {
 
 export type EmailLog = typeof emailLogs.$inferSelect;
 export type InsertEmailLog = typeof emailLogs.$inferInsert;
+
+
+export const reviews = mysqlTable("reviews", {
+  id: serial("id"),
+  propertyId: bigint("propertyId", { mode: "number", unsigned: true }).notNull(),
+  userId: bigint("userId", { mode: "number", unsigned: true }).notNull(),
+  userName: varchar("userName", { length: 255 }).notNull(),
+  userType: mysqlEnum("userType", ["guest", "host"]).notNull(),
+  rating: int("rating").notNull(),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;
