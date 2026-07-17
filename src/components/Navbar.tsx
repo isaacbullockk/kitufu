@@ -93,6 +93,14 @@ export default function Navbar() {
             My Dashboard
           </Link>
           <Link
+            to="/admin"
+            className={`font-body font-medium text-sm transition-colors duration-200 ${
+              scrolled ? 'text-slate hover:text-deep-forest' : 'text-white/90 hover:text-white'
+            }`}
+          >
+            Admin
+          </Link>
+          <Link
             to="/host"
             className={`font-body font-semibold text-sm px-5 py-2.5 rounded-lg border-2 transition-all duration-200 ${
               scrolled
