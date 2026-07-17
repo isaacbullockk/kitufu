@@ -145,3 +145,21 @@ export const reviews = mysqlTable("reviews", {
 
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = typeof reviews.$inferInsert;
+
+
+export const siteConfig = mysqlTable("siteConfig", {
+  id: serial("id"),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value"),
+  updatedAt: timestamp("updatedAt").defaultNow(),
+});
+
+export const propertyTypes = mysqlTable("propertyTypes", {
+  id: serial("id"),
+  name: varchar("name", { length: 100 }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }),
+  isActive: tinyint("isActive").default(1),
+  sortOrder: int("sortOrder").default(0),
+});
