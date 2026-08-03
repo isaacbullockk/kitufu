@@ -14,6 +14,16 @@ app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.get("/api/health", (c) => c.json({ status: "ok", service: "kitufu", version: "1.0.0", ts: Date.now() }));
 
+// DB setup endpoint — manually trigger table creation
+app.get("/api/db-setup", async (c) => {
+  try {
+    await autoSeed();
+    return c.json({ success: true, message: "Database tables created and seeded" });
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message, stack: e.stack }, 500);
+  }
+});
+
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({ endpoint: "/api/trpc", req: c.req.raw, router: appRouter, createContext });
 });
