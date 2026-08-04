@@ -1,11 +1,11 @@
 import { getDb } from "./queries/connection";
-import { env } from "../lib/env";
+// Using process.env directly to avoid esbuild resolve issue
 import { properties, bookings, users, hostProfiles, availability, groupEnquiries, emailLogs } from "../db/schema";
 import { sql } from "drizzle-orm";
 import mysql from "mysql2/promise";
 
 async function getRawConnection() {
-  return mysql.createConnection(env.databaseUrl);
+  return mysql.createConnection(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL || "");
 }
 
 async function ensureTable(tableName: string, createSql: string) {
