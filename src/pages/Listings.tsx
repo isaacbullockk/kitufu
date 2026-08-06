@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
 import { Star, Bed, Wind, Wifi, Shield, Bus, MapPin, Filter } from 'lucide-react'
 import { trpc } from '../providers/trpc'
+import { useCurrency } from '@/context/CurrencyContext'
 
 export default function Listings() {
+  const { formatPrice } = useCurrency()
   const navigate = useNavigate()
   const [city, setCity] = useState('')
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000])
@@ -81,7 +83,7 @@ export default function Listings() {
                   </div>
                   <div className="flex items-end justify-between pt-3 border-t border-white/10">
                     <div>
-                      <span className="text-xl font-bold text-white">USh {p.pricePerNight.toLocaleString()}</span>
+                      <span className="text-xl font-bold text-white">{formatPrice(p.pricePerNight)}</span>
                       <span className="text-gray-400 text-sm"> /night</span>
                     </div>
                     <span className="text-savanna-gold text-sm font-medium">{p.capacity} guests</span>
