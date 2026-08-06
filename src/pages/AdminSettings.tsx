@@ -1,11 +1,46 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Settings, RotateCcw, Save, Palette, Type, Globe, Phone, Mail, Sparkles } from 'lucide-react'
+import { Settings, RotateCcw, Save, Palette, Type, Globe, Phone, Mail, Sparkles, ShieldAlert } from 'lucide-react'
 import { trpc } from '../providers/trpc'
 import { useSiteConfig } from '../hooks/useSiteConfig'
+import { useAuth } from '../hooks/useAuth'
+import { LOGIN_PATH } from '../const'
 
 export default function AdminSettings() {
-  const config = useSiteConfig();
+  const navigate = useNavigate()
+  const { user, isLoading } = useAuth()
+  const config = useSiteConfig()
+
+  // Loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-sunset border-t-transparent" />
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    useEffect(() => {
+      navigate(LOGIN_PATH)
+    }, [navigate])
+    return null
+  }
+
+  // Access denied if not admin
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
+        <div className="flex flex-col items-center gap-4">
+          <ShieldAlert className="h-16 w-16 text-earth-red" />
+          <h1 className="text-2xl font-bold text-white">Access Denied</h1>
+          <p className="text-gray-400">You need admin privileges to access this page.</p>
+        </div>
+      </div>
+    )
+  }
   const [form, setForm] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
