@@ -207,8 +207,9 @@ function FAQItem({ item, isOpen, onToggle, index }: {
         />
       </button>
       <AnimatePresence>
-        {isOpen && (
+        {isOpen ? (
           <motion.div
+            key="faq-answer"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -217,7 +218,7 @@ function FAQItem({ item, isOpen, onToggle, index }: {
           >
             <p className="font-body text-slate leading-relaxed pb-5 pr-8">{item.a}</p>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </motion.div>
   )
