@@ -26,3 +26,5 @@ EXPOSE 3000
 CMD ["npm", "start"]
 
 # Cache bust 2026-08-06-v2
+
+# Cache bust 2026-08-06-v3-features
