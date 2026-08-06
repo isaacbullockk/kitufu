@@ -11,13 +11,15 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-[100dvh] flex flex-col">
-      <Navbar />
-      <main className="flex-1">
-        {children ?? <Outlet />}
-      </main>
-      <Footer />
-      <ChatWidget />
-    </div>
+    <CurrencyProvider>
+      <div className="min-h-[100dvh] flex flex-col">
+        <Navbar />
+        <main className="flex-1">
+          {children ?? <Outlet />}
+        </main>
+        <Footer />
+        <ChatWidget />
+      </div>
+    </CurrencyProvider>
   )
 }
