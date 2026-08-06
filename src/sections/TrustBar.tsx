@@ -1,44 +1,41 @@
-import { useRef, useEffect, useState } from 'react'
-import { motion, useInView, useMotionValue, animate } from 'framer-motion'
+import { useRef } from 'react'
+import { motion, useInView } from 'framer-motion'
 import { Building2, Users, MapPin, Shield } from 'lucide-react'
+import { trpc } from '../providers/trpc'
 
-const stats = [
+const fallbackStats = [
   { icon: Building2, number: 500, suffix: '+', label: 'Converted Residences' },
   { icon: Users, number: 15000, suffix: '+', label: 'Beds Available' },
   { icon: MapPin, number: 2, suffix: '', label: 'Host Cities' },
   { icon: Shield, number: 100, suffix: '%', label: 'UTB Certified' },
 ]
 
-function AnimatedCounter({ target, suffix, inView }: { target: number; suffix: string; inView: boolean }) {
-  const count = useMotionValue(0)
-  const [display, setDisplay] = useState('0')
-
-  useEffect(() => {
-    if (!inView) return
-    const controls = animate(count, target, {
-      duration: 2,
-      ease: 'easeOut',
-      onUpdate: (v) => {
-        if (target >= 1000) {
-          setDisplay(Math.round(v).toLocaleString())
-        } else {
-          setDisplay(Math.round(v).toString())
-        }
-      },
-    })
-    return controls.stop
-  }, [inView, target, count])
-
-  return <span>{display}{suffix}</span>
+function formatNumber(n: number): string {
+  if (n >= 1000) return n.toLocaleString()
+  return n.toString()
 }
 
 export default function TrustBar() {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-20% 0px' })
 
+  const { data: properties } = trpc.property.list.useQuery({ status: 'approved' })
+
+  // Calculate real stats from data
+  const totalProperties = properties?.length ?? fallbackStats[0].number
+  const totalBeds = properties?.reduce((sum: number, p: any) => sum + (p.capacity || 0), 0) ?? fallbackStats[1].number
+  const uniqueCities = new Set(properties?.map((p: any) => p.location) ?? []).size || fallbackStats[2].number
+
+  const stats = [
+    { icon: Building2, number: totalProperties, suffix: '+', label: 'Converted Residences' },
+    { icon: Users, number: totalBeds, suffix: '+', label: 'Beds Available' },
+    { icon: MapPin, number: Math.max(uniqueCities, 2), suffix: '', label: 'Host Cities' },
+    { icon: Shield, number: 100, suffix: '%', label: 'UTB Certified' },
+  ]
+
   return (
     <section ref={ref} className="bg-white border-b border-light-grey">
-      <div className="container-kitufu py-8 lg:py-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 lg:py-10">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0">
           {stats.map((stat, i) => (
@@ -51,9 +48,9 @@ export default function TrustBar() {
                 i < stats.length - 1 ? 'lg:border-r lg:border-light-grey' : ''
               }`}
             >
-              <stat.icon size={24} className="text-teal-depth mb-3" />
+              <stat.icon size={24} className="text-deep-forest mb-3" />
               <div className="font-display font-bold text-2xl lg:text-[2rem] text-sunset mb-1">
-                <AnimatedCounter target={stat.number} suffix={stat.suffix} inView={inView} />
+                {inView ? formatNumber(stat.number) : '0'}{stat.suffix}
               </div>
               <div className="text-sm text-slate font-body">{stat.label}</div>
             </motion.div>
