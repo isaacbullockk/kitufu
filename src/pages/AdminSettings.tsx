@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
 import { Settings, RotateCcw, Save, Palette, Type, Globe, Phone, Mail, Sparkles, ShieldAlert } from 'lucide-react'
 import { trpc } from '../providers/trpc'
