@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { Menu, X, UtensilsCrossed, Music } from 'lucide-react'
+import { useCurrency, CURRENCIES } from '@/context/CurrencyContext'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const navLinks = [
   { label: 'Listings', href: '/listings' },
@@ -10,6 +18,28 @@ const navLinks = [
   { label: 'Group Booking', href: '/group-booking' },
   { label: 'AFCON 2027', href: '/afcon-2027' },
 ]
+
+function CurrencySelector({ scrolled }: { scrolled: boolean }) {
+  const { currency, setCurrency } = useCurrency()
+  return (
+    <Select value={currency} onValueChange={(v) => setCurrency(v as typeof currency)}>
+      <SelectTrigger
+        className={`h-8 text-xs font-medium border-0 bg-transparent shadow-none focus:ring-0 ${
+          scrolled ? 'text-deep-forest hover:bg-warm-sand' : 'text-white hover:bg-white/10'
+        }`}
+      >
+        <SelectValue placeholder="Currency" />
+      </SelectTrigger>
+      <SelectContent>
+        {CURRENCIES.map((c) => (
+          <SelectItem key={c} value={c} className="text-xs">
+            {c}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -79,6 +109,11 @@ export default function Navbar() {
               />
             </Link>
           ))}
+        </div>
+
+        {/* Currency Selector */}
+        <div className="hidden lg:flex items-center">
+          <CurrencySelector scrolled={scrolled} />
         </div>
 
         {/* Desktop CTA + Dashboard */}
