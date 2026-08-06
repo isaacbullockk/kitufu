@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
-import { Star, Bed, Wind, Wifi, Shield, Bus, MapPin, Filter } from 'lucide-react'
+import { Star, Bed, Wind, Wifi, Shield, Bus, MapPin } from 'lucide-react'
 import { trpc } from '../providers/trpc'
-import { useCurrency } from '@/context/CurrencyContext'
+import QuickBookModal from '@/components/QuickBookModal'
 
 export default function Listings() {
-  const { formatPrice } = useCurrency()
   const navigate = useNavigate()
   const [city, setCity] = useState('')
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000])
+  const [quickBookProperty, setQuickBookProperty] = useState<{
+    id: number
+    title: string
+    pricePerNight: number
+    image: string
+  } | null>(null)
 
   const { data: properties, isLoading } = trpc.property.list.useQuery({
     city: city || undefined,
@@ -19,6 +24,10 @@ export default function Listings() {
   const filtered = (properties || []).filter((p: any) =>
     p.pricePerNight >= priceRange[0] && p.pricePerNight <= priceRange[1]
   )
+
+  const firstImage = (p: any) => {
+    try { return JSON.parse(p.images)[0] } catch { return 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267' }
+  }
 
   return (
     <div className="min-h-screen bg-deep-forest pt-24 pb-16">
@@ -58,12 +67,11 @@ export default function Listings() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                onClick={() => navigate('/property/' + p.id)}
-                className="bg-midnight rounded-xl overflow-hidden cursor-pointer hover:shadow-xl transition-all group"
+                className="bg-midnight rounded-xl overflow-hidden hover:shadow-xl transition-all group"
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/property/' + p.id)}>
                   <img
-                    src={p.images ? JSON.parse(p.images)[0] : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'}
+                    src={firstImage(p)}
                     alt={p.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267' }}
@@ -83,10 +91,31 @@ export default function Listings() {
                   </div>
                   <div className="flex items-end justify-between pt-3 border-t border-white/10">
                     <div>
-                      <span className="text-xl font-bold text-white">{formatPrice(p.pricePerNight)}</span>
+                      <span className="text-xl font-bold text-white">USh {p.pricePerNight.toLocaleString()}</span>
                       <span className="text-gray-400 text-sm"> /night</span>
                     </div>
                     <span className="text-savanna-gold text-sm font-medium">{p.capacity} guests</span>
+                  </div>
+                  {/* Actions */}
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setQuickBookProperty({ id: p.id, title: p.title, pricePerNight: p.pricePerNight, image: firstImage(p) })
+                      }}
+                      className="flex-1 bg-sunset hover:bg-sunset/90 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Book Now
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate('/property/' + p.id)
+                      }}
+                      className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -94,6 +123,18 @@ export default function Listings() {
           </div>
         )}
       </div>
+
+      {/* Quick Book Modal */}
+      {quickBookProperty && (
+        <QuickBookModal
+          propertyId={quickBookProperty.id}
+          price={quickBookProperty.pricePerNight}
+          title={quickBookProperty.title}
+          image={quickBookProperty.image}
+          isOpen={!!quickBookProperty}
+          onClose={() => setQuickBookProperty(null)}
+        />
+      )}
     </div>
   )
 }
