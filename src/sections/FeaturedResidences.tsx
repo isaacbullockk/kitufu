@@ -3,17 +3,19 @@ import { useNavigate } from 'react-router'
 import { motion, useInView } from 'framer-motion'
 import { Heart, Star, Bed, Wind, Wifi, Shield, Bus, Lock } from 'lucide-react'
 import { trpc } from '../providers/trpc'
+import { useCurrency } from '../context/CurrencyContext'
 
 const fallbackProperties = [
-  { id: 1, image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Kampala Central Hub', location: 'Namboole, Kampala', distance: '2.1 km to Mandela Stadium', rating: 4.7, reviews: 128, amenities: [{ icon: Bed, label: 'Twin' }, { icon: Wind, label: 'AC' }, { icon: Wifi, label: 'WiFi' }, { icon: Shield, label: 'Security' }], price: 45, total: 315, nights: 7 },
-  { id: 2, image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Mandela Walk Suites', location: 'Namboole, Kampala', distance: '0.5 km to Mandela Stadium', rating: 4.9, reviews: 256, amenities: [{ icon: Bed, label: 'Quad' }, { icon: Wind, label: 'AC' }, { icon: Bus, label: 'Shuttle' }, { icon: Wifi, label: 'WiFi' }], price: 85, total: 595, nights: 7 },
-  { id: 3, image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Kololo View Apartments', location: 'Kololo, Kampala', distance: '4.5 km to Mandela Stadium', rating: 4.8, reviews: 89, amenities: [{ icon: Bed, label: 'Private' }, { icon: Wind, label: 'AC' }, { icon: Lock, label: 'Safe' }, { icon: Wifi, label: 'WiFi' }], price: 120, total: 840, nights: 7 },
+  { id: 1, image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Kampala Central Hub', location: 'Namboole, Kampala', distance: '2.1 km to Mandela Stadium', rating: 4.7, reviews: 128, amenities: [{ icon: Bed, label: 'Twin' }, { icon: Wind, label: 'AC' }, { icon: Wifi, label: 'WiFi' }, { icon: Shield, label: 'Security' }], pricePerNight: 45000, nights: 7 },
+  { id: 2, image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Mandela Walk Suites', location: 'Namboole, Kampala', distance: '0.5 km to Mandela Stadium', rating: 4.9, reviews: 256, amenities: [{ icon: Bed, label: 'Quad' }, { icon: Wind, label: 'AC' }, { icon: Bus, label: 'Shuttle' }, { icon: Wifi, label: 'WiFi' }], pricePerNight: 85000, nights: 7 },
+  { id: 3, image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Kololo View Apartments', location: 'Kololo, Kampala', distance: '4.5 km to Mandela Stadium', rating: 4.8, reviews: 89, amenities: [{ icon: Bed, label: 'Private' }, { icon: Wind, label: 'AC' }, { icon: Lock, label: 'Safe' }, { icon: Wifi, label: 'WiFi' }], pricePerNight: 120000, nights: 7 },
 ]
 
 export default function FeaturedResidences() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: '-100px' })
   const navigate = useNavigate()
+  const { formatPrice } = useCurrency()
 
   const { data: apiProperties, isLoading } = trpc.property.list.useQuery({ status: 'approved' })
 
@@ -26,11 +28,10 @@ export default function FeaturedResidences() {
         name: p.title,
         location: p.location + ', Uganda',
         distance: p.distanceToStadium ? p.distanceToStadium + ' to stadium' : '',
-        rating: 4.5 + Math.random() * 0.5,
-        reviews: Math.floor(50 + Math.random() * 200),
+        rating: 4.5 + (p.id % 10) / 10,
+        reviews: 50 + (p.id * 37) % 200,
         amenities: [{ icon: Bed, label: p.bedrooms + ' BR' }, { icon: Wind, label: 'AC' }, { icon: Wifi, label: 'WiFi' }, { icon: Shield, label: 'Security' }],
-        price: Math.round(p.pricePerNight / 1000),
-        total: Math.round(p.pricePerNight / 1000) * 7,
+        pricePerNight: p.pricePerNight,
         nights: 7,
       }))
     : fallbackProperties
@@ -81,7 +82,7 @@ export default function FeaturedResidences() {
                   </div>
                 </div>
                 <p className="text-gray-400 text-sm mb-3">{property.location} · {property.distance}</p>
-                <div className="flex gap-4 mb-4">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mb-4">
                   {property.amenities.map((amenity: any, j: number) => (
                     <div key={j} className="flex items-center gap-1.5 text-gray-300 text-xs">
                       <amenity.icon className="w-3.5 h-3.5" />
@@ -91,10 +92,10 @@ export default function FeaturedResidences() {
                 </div>
                 <div className="flex items-end justify-between pt-4 border-t border-white/10">
                   <div>
-                    <span className="text-2xl font-bold text-white">${property.price}</span>
+                    <span className="text-2xl font-bold text-white">{formatPrice(property.pricePerNight)}</span>
                     <span className="text-gray-400 text-sm"> /night</span>
                   </div>
-                  <span className="text-gray-400 text-sm">${property.total} total</span>
+                  <span className="text-gray-400 text-sm">{formatPrice(property.pricePerNight * property.nights)} total</span>
                 </div>
               </div>
             </motion.div>
