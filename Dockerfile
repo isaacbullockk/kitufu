@@ -24,3 +24,5 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/public ./public
 EXPOSE 3000
 CMD ["npm", "start"]
+
+# Cache bust 2026-08-06-v2
