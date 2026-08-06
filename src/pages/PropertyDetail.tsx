@@ -14,8 +14,8 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import useEmblaCarousel from 'embla-carousel-react'
 import { trpc } from '@/providers/trpc'
-import { useCurrency } from '@/context/CurrencyContext'
 import ReviewsSection from '@/components/ReviewsSection'
+import QuickBookModal from '@/components/QuickBookModal'
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -458,6 +458,7 @@ function ReviewCard({ review }: { review: typeof REVIEWS.items[0] }) {
 
 function BookingPanel({ property }: { property: UiPropertyDetail }) {
   const [shuttle, setShuttle] = useState(!!property.hasShuttle)
+  const [showQuickBook, setShowQuickBook] = useState(false)
   const nights = 7
   const shuttleCost = shuttle ? 8 * nights : 0
   const accommodation = property.pricePerNight * nights
@@ -465,125 +466,144 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
   const taxes = Math.round(accommodation * 0.18)
   const total = accommodation + shuttleCost + serviceFee + taxes
 
+  const firstImage = property.images[0] || '/property-kampala-1.jpg'
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 30 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
-      className="bg-white border border-light-grey rounded-xl p-6 shadow-card sticky top-[120px]"
-    >
-      {/* Price Header */}
-      <div className="flex items-baseline justify-between mb-4">
-        <div className="flex items-baseline gap-1">
-          <span className="font-display text-price-display text-deep-forest">{formatPrice(property.pricePerNight)}</span>
-          <span className="text-slate text-sm">/ night</span>
-        </div>
-        <div className="flex items-center gap-1 text-sm">
-          <Star size={16} className="text-savanna-gold fill-savanna-gold" />
-          <span className="text-savanna-gold font-medium">{property.rating}</span>
-        </div>
-      </div>
-
-      {/* Date Selection */}
-      <div className="border border-light-grey rounded-lg overflow-hidden mb-4">
-        <div className="p-3 border-b border-light-grey">
-          <label className="text-xs text-slate font-medium uppercase tracking-wide">Dates</label>
-          <div className="flex items-center gap-2 mt-1">
-            <Calendar size={16} className="text-slate" />
-            <span className="text-sm text-deep-forest">Jun 15 &mdash; Jul 2</span>
+    <>
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="bg-white border border-light-grey rounded-xl p-6 shadow-card sticky top-[120px]"
+      >
+        {/* Price Header */}
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline gap-1">
+            <span className="font-display text-price-display text-deep-forest">USh {property.pricePerNight.toLocaleString()}</span>
+            <span className="text-slate text-sm">/ night</span>
+          </div>
+          <div className="flex items-center gap-1 text-sm">
+            <Star size={16} className="text-savanna-gold fill-savanna-gold" />
+            <span className="text-savanna-gold font-medium">{property.rating}</span>
           </div>
         </div>
-        <div className="p-3">
-          <label className="text-xs text-slate font-medium uppercase tracking-wide">Guests</label>
-          <div className="flex items-center gap-2 mt-1">
-            <Users size={16} className="text-slate" />
-            <span className="text-sm text-deep-forest">2 adults</span>
+
+        {/* Date Selection */}
+        <div className="border border-light-grey rounded-lg overflow-hidden mb-4">
+          <div className="p-3 border-b border-light-grey">
+            <label className="text-xs text-slate font-medium uppercase tracking-wide">Dates</label>
+            <div className="flex items-center gap-2 mt-1">
+              <Calendar size={16} className="text-slate" />
+              <span className="text-sm text-deep-forest">Jun 15 &mdash; Jul 2</span>
+            </div>
+          </div>
+          <div className="p-3">
+            <label className="text-xs text-slate font-medium uppercase tracking-wide">Guests</label>
+            <div className="flex items-center gap-2 mt-1">
+              <Users size={16} className="text-slate" />
+              <span className="text-sm text-deep-forest">2 adults</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Season Pass Badge */}
-      <div className="flex items-center gap-2 mb-4">
-        <Badge className="bg-sunset/10 text-sunset hover:bg-sunset/20 text-xs">Season Pass Available</Badge>
-      </div>
-
-      {/* Shuttle Toggle */}
-      {property.hasShuttle && (
-        <div className="flex items-center justify-between mb-4 p-3 bg-warm-sand rounded-lg">
-          <div>
-            <p className="text-sm font-medium text-deep-forest">Add Stadium Shuttle</p>
-            <p className="text-xs text-slate">+{formatPrice(8000)}/day per person</p>
-          </div>
-          <Switch checked={shuttle} onCheckedChange={setShuttle} className="data-[state=checked]:bg-teal-depth" />
+        {/* Season Pass Badge */}
+        <div className="flex items-center gap-2 mb-4">
+          <Badge className="bg-sunset/10 text-sunset hover:bg-sunset/20 text-xs">Season Pass Available</Badge>
         </div>
-      )}
 
-      {/* Price Breakdown */}
-      <div className="space-y-2 mb-4">
-        <div className="flex justify-between text-sm">
-          <span className="text-slate">{formatPrice(property.pricePerNight)} &times; {nights} nights</span>
-          <span className="text-deep-forest">{formatPrice(accommodation)}</span>
-        </div>
-        {shuttle && (
-          <div className="flex justify-between text-sm">
-            <span className="text-slate">Shuttle pass</span>
-            <span className="text-deep-forest">{formatPrice(shuttleCost)}</span>
+        {/* Shuttle Toggle */}
+        {property.hasShuttle && (
+          <div className="flex items-center justify-between mb-4 p-3 bg-warm-sand rounded-lg">
+            <div>
+              <p className="text-sm font-medium text-deep-forest">Add Stadium Shuttle</p>
+              <p className="text-xs text-slate">+USh 8,000/day per person</p>
+            </div>
+            <Switch checked={shuttle} onCheckedChange={setShuttle} className="data-[state=checked]:bg-teal-depth" />
           </div>
         )}
-        <div className="flex justify-between text-sm">
-          <span className="text-slate">Service fee</span>
-          <span className="text-deep-forest">{formatPrice(serviceFee)}</span>
+
+        {/* Price Breakdown */}
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate">USh {property.pricePerNight.toLocaleString()} &times; {nights} nights</span>
+            <span className="text-deep-forest">USh {accommodation.toLocaleString()}</span>
+          </div>
+          {shuttle && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate">Shuttle pass</span>
+              <span className="text-deep-forest">USh {shuttleCost.toLocaleString()}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate">Service fee</span>
+            <span className="text-deep-forest">USh {serviceFee.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate">Taxes</span>
+            <span className="text-deep-forest">USh {taxes.toLocaleString()}</span>
+          </div>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-slate">Taxes</span>
-          <span className="text-deep-forest">{formatPrice(taxes)}</span>
+
+        <Separator className="my-4" />
+
+        <div className="flex justify-between items-center mb-4">
+          <span className="font-display font-bold text-deep-forest">Total</span>
+          <span className="font-display text-price-display text-deep-forest">USh {total.toLocaleString()}</span>
         </div>
-      </div>
 
-      <Separator className="my-4" />
-
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-display font-bold text-deep-forest">Total</span>
-        <span className="font-display text-price-display text-deep-forest">{formatPrice(total)}</span>
-      </div>
-
-      {/* CTA Buttons */}
-      <Link to={`/booking/${property.id}`}>
-        <Button className="w-full btn-sunset-gradient animate-pulse-cta mb-3">
-          Reserve
+        {/* CTA Buttons */}
+        <Button
+          className="w-full btn-sunset-gradient animate-pulse-cta mb-3"
+          onClick={() => setShowQuickBook(true)}
+        >
+          Quick Book
         </Button>
-      </Link>
-      <Button variant="outline" className="w-full btn-secondary mb-3">
-        Contact Host
-      </Button>
-      <p className="text-xs text-slate text-center mb-4">You won&apos;t be charged yet</p>
-
-      {/* Trust Badges */}
-      <div className="flex justify-center gap-4 text-xs text-slate">
-        <div className="flex items-center gap-1">
-          <Shield size={14} className="text-teal-depth" />
-          <span>UTB Certified</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Check size={14} className="text-teal-depth" />
-          <span>Free Cancellation</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Lock size={14} className="text-teal-depth" />
-          <span>Secure</span>
-        </div>
-      </div>
-
-      {/* Group Booking Teaser */}
-      <Separator className="my-4" />
-      <div className="text-center">
-        <p className="text-sm font-medium text-deep-forest mb-1">Bringing a group?</p>
-        <p className="text-xs text-slate mb-2">Request to buy out this building for your supporters&apos; club.</p>
-        <Link to="/group-booking" className="text-sm text-teal-depth underline underline-offset-4 hover:text-deep-forest transition-colors">
-          Learn More &rarr;
+        <Link to={`/booking/${property.id}`}>
+          <Button variant="outline" className="w-full btn-secondary mb-3">
+            Full Booking Page
+          </Button>
         </Link>
-      </div>
-    </motion.div>
+        <Button variant="outline" className="w-full btn-secondary mb-3">
+          Contact Host
+        </Button>
+        <p className="text-xs text-slate text-center mb-4">You won&apos;t be charged yet</p>
+
+        {/* Trust Badges */}
+        <div className="flex justify-center gap-4 text-xs text-slate">
+          <div className="flex items-center gap-1">
+            <Shield size={14} className="text-teal-depth" />
+            <span>UTB Certified</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Check size={14} className="text-teal-depth" />
+            <span>Free Cancellation</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Lock size={14} className="text-teal-depth" />
+            <span>Secure</span>
+          </div>
+        </div>
+
+        {/* Group Booking Teaser */}
+        <Separator className="my-4" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-deep-forest mb-1">Bringing a group?</p>
+          <p className="text-xs text-slate mb-2">Request to buy out this building for your supporters&apos; club.</p>
+          <Link to="/group-booking" className="text-sm text-teal-depth underline underline-offset-4 hover:text-deep-forest transition-colors">
+            Learn More &rarr;
+          </Link>
+        </div>
+      </motion.div>
+
+      <QuickBookModal
+        propertyId={property.id}
+        price={property.pricePerNight}
+        title={property.title}
+        image={firstImage}
+        isOpen={showQuickBook}
+        onClose={() => setShowQuickBook(false)}
+      />
+    </>
   )
 }
 
@@ -793,7 +813,7 @@ function SimilarProperties({ properties }: { properties: typeof SIMILAR_PROPERTI
                       </div>
                       <p className="text-sm text-slate mb-3">{prop.location}</p>
                       <div className="flex items-baseline gap-1">
-                        <span className="font-display font-bold text-deep-forest">{formatPrice(Math.round(prop.price / 0.00027))}</span>
+                        <span className="font-display font-bold text-deep-forest">USh {prop.price.toLocaleString()}</span>
                         <span className="text-sm text-slate">/ night</span>
                       </div>
                     </div>
@@ -1033,7 +1053,6 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>()
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
-  const { formatPrice } = useCurrency()
   const [saved, setSaved] = useState(false)
   const [showAllAmenities, setShowAllAmenities] = useState(false)
   const [showAllReviews, setShowAllReviews] = useState(false)
