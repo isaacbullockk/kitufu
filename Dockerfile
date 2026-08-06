@@ -30,3 +30,5 @@ CMD ["npm", "start"]
 # Cache bust 2026-08-06-v3-features
 
 # Cache bust v6 1786020253
+
+# Cache bust v7 mobile-fixes 1786022235
