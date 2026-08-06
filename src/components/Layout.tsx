@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Outlet } from 'react-router'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import ChatWidget from './ChatWidget'
 
 interface LayoutProps {
   children?: ReactNode
@@ -15,6 +16,7 @@ export default function Layout({ children }: LayoutProps) {
         {children ?? <Outlet />}
       </main>
       <Footer />
+      <ChatWidget />
     </div>
   )
 }
