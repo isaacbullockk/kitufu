@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { useCurrency } from '@/context/CurrencyContext'
 
 /* ------------------------------------------------------------------ */
 /*  Animation helpers                                                  */
@@ -238,7 +239,7 @@ function EarningsBarChart() {
             style={{ height: `${(d.value / max) * 100}%` }}
           >
             <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-charcoal text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              ${d.value.toLocaleString()}
+              {formatPrice(Math.round(d.value / 0.00027))}
             </div>
           </motion.div>
           <span className="text-xs text-slate font-medium">{d.month}</span>
@@ -425,9 +426,10 @@ function ChecklistItem({
 /*  Section 1: Host Header                                             */
 /* ------------------------------------------------------------------ */
 function HostHeader() {
+  const { formatPrice } = useCurrency()
   const stats = [
-    { icon: DollarSign, value: '$12,450', label: 'Total Earnings', change: '+23% vs. last month' },
-    { icon: TrendingUp, value: '$3,200', label: 'This Month', change: '8 bookings' },
+    { icon: DollarSign, value: 12450, label: 'Total Earnings', change: '+23% vs. last month' },
+    { icon: TrendingUp, value: 3200, label: 'This Month', change: '8 bookings' },
     { icon: BarChart3, value: '78%', label: 'Occupancy Rate', change: 'Target: 85%' },
     { icon: Calendar, value: '142', label: 'Days to AFCON', change: 'Jun 15, 2027' },
   ]
@@ -540,7 +542,7 @@ function MyProperties() {
                     <div className="text-sm space-y-1 md:text-right">
                       <div className="text-slate">{p.upcomingBookings} upcoming bookings</div>
                       <div className="text-slate">{p.occupancy}% occupancy (Jun-Aug)</div>
-                      <div className="text-sunset font-semibold">${p.earned.toLocaleString()} earned</div>
+                      <div className="text-sunset font-semibold">{formatPrice(Math.round(p.earned / 0.00027))} earned</div>
                     </div>
                   )}
                 </div>
@@ -752,20 +754,20 @@ function EarningsTab() {
           >
             <span className="text-sm text-deep-forest font-medium">{e.period}</span>
             <span className="text-sm text-slate">{e.bookings}</span>
-            <span className="text-sm text-deep-forest">${e.nightlyRevenue.toLocaleString()}</span>
-            <span className="text-sm text-teal-depth">${e.shuttleRevenue}</span>
-            <span className="text-sm text-slate">${e.serviceFee}</span>
-            <span className="text-sm font-body font-semibold text-deep-forest">${e.total.toLocaleString()}</span>
+            <span className="text-sm text-deep-forest">{formatPrice(Math.round(e.nightlyRevenue / 0.00027))}</span>
+            <span className="text-sm text-teal-depth">{formatPrice(Math.round(e.shuttleRevenue / 0.00027))}</span>
+            <span className="text-sm text-slate">{formatPrice(Math.round(e.serviceFee / 0.00027))}</span>
+            <span className="text-sm font-body font-semibold text-deep-forest">{formatPrice(Math.round(e.total / 0.00027))}</span>
           </motion.div>
         ))}
         {/* Total row */}
         <div className="grid grid-cols-2 md:grid-cols-[1.2fr_0.8fr_1fr_1fr_1fr_1fr] gap-2 md:gap-4 px-5 py-4 border-t border-light-grey bg-warm-sand font-semibold">
           <span className="text-sm text-deep-forest">Total</span>
           <span className="text-sm text-deep-forest">{totals.bookings}</span>
-          <span className="text-sm text-deep-forest">${totals.nightlyRevenue.toLocaleString()}</span>
-          <span className="text-sm text-deep-forest">${totals.shuttleRevenue}</span>
-          <span className="text-sm text-deep-forest">${totals.serviceFee}</span>
-          <span className="text-sm text-sunset">${totals.total.toLocaleString()}</span>
+          <span className="text-sm text-deep-forest">{formatPrice(Math.round(totals.nightlyRevenue / 0.00027))}</span>
+          <span className="text-sm text-deep-forest">{formatPrice(Math.round(totals.shuttleRevenue / 0.00027))}</span>
+          <span className="text-sm text-deep-forest">{formatPrice(Math.round(totals.serviceFee / 0.00027))}</span>
+          <span className="text-sm text-sunset">{formatPrice(Math.round(totals.total / 0.00027))}</span>
         </div>
       </div>
 
@@ -779,7 +781,7 @@ function EarningsTab() {
       >
         <div className="flex items-center gap-2 mb-3">
           <Banknote size={20} className="text-teal-depth" />
-          <h3 className="font-display font-semibold text-lg text-teal-depth">Next Payout: $3,200</h3>
+          <h3 className="font-display font-semibold text-lg text-teal-depth">Next Payout: {formatPrice(Math.round(3200 / 0.00027))}</h3>
         </div>
         <p className="text-sm text-deep-forest mb-1">Scheduled: July 5, 2027</p>
         <p className="text-sm text-slate mb-3">Bank Account: **** **** **** 4532</p>
@@ -1068,6 +1070,7 @@ function HostProfile() {
 /*  Main Host Dashboard Page                                           */
 /* ------------------------------------------------------------------ */
 export default function Host() {
+  const { formatPrice } = useCurrency()
   const [activeTab, setActiveTab] = useState('properties')
 
   return (
