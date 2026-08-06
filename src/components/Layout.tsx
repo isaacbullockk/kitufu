@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Outlet } from 'react-router'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import { CurrencyProvider } from '@/context/CurrencyContext'
 import ChatWidget from './ChatWidget'
 
 interface LayoutProps {
