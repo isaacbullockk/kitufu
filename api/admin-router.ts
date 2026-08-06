@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { createRouter, publicQuery, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { properties, bookings } from "@db/schema";
+import { properties, bookings, users } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
 export const adminRouter = createRouter({
   // List pending properties for approval
-  listPendingProperties: publicQuery
+  listPendingProperties: adminQuery
     .query(async () => {
       try {
         const db = getDb();
@@ -25,7 +25,7 @@ export const adminRouter = createRouter({
     }),
 
   // Approve a property
-  approveProperty: publicQuery
+  approveProperty: adminQuery
     .input(z.object({ id: z.number().positive() }))
     .mutation(async ({ input }) => {
       try {
@@ -54,7 +54,7 @@ export const adminRouter = createRouter({
     }),
 
   // Reject a property
-  rejectProperty: publicQuery
+  rejectProperty: adminQuery
     .input(z.object({ id: z.number().positive(), reason: z.string().optional() }))
     .mutation(async ({ input }) => {
       try {
@@ -79,6 +79,35 @@ export const adminRouter = createRouter({
       } catch (err: any) {
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to reject property" });
+      }
+    }),
+
+  // Make a user an admin
+  makeAdmin: adminQuery
+    .input(z.object({ unionId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      try {
+        const db = getDb();
+
+        const existing = await db
+          .select()
+          .from(users)
+          .where(eq(users.unionId, input.unionId))
+          .limit(1);
+
+        if (existing.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "User with unionId " + input.unionId + " not found" });
+        }
+
+        await db
+          .update(users)
+          .set({ role: "admin" })
+          .where(eq(users.unionId, input.unionId));
+
+        return { success: true, unionId: input.unionId, role: "admin" };
+      } catch (err: any) {
+        if (err instanceof TRPCError) throw err;
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to promote user to admin" });
       }
     }),
 
