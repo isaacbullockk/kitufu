@@ -15,6 +15,8 @@ import AddProperty from './pages/AddProperty'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminSettings from './pages/AdminSettings'
 import PaymentPage from './pages/PaymentPage'
+import RestaurantGuide from './pages/RestaurantGuide'
+import TripPlanner from './pages/TripPlanner'
 import Login from "./pages/Login"
 import NotFound from "./pages/NotFound"
 
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/restaurants" element={<RestaurantGuide />} />
+        <Route path="/trip-planner" element={<TripPlanner />} />
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="*" element={<NotFound />} />
