@@ -140,7 +140,7 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - z-40 to stay below mobile nav */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -149,7 +149,7 @@ export default function ChatWidget() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#1a3c27] text-white shadow-lg hover:scale-110 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-[#1a3c27] focus:ring-offset-2"
+            className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#1a3c27] text-white shadow-lg hover:scale-110 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-[#1a3c27] focus:ring-offset-2"
             aria-label="Open chat"
           >
             <MessageCircle className="h-6 w-6" />
@@ -157,7 +157,7 @@ export default function ChatWidget() {
         )}
       </AnimatePresence>
 
-      {/* Chat Panel */}
+      {/* Chat Panel - z-40 to stay below mobile nav */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -165,7 +165,7 @@ export default function ChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="fixed bottom-6 right-6 z-50 flex flex-col rounded-xl border border-light-grey bg-white shadow-2xl"
+            className="fixed bottom-6 right-6 z-40 flex flex-col rounded-xl border border-light-grey bg-white shadow-2xl"
             style={{ width: 380, maxHeight: 500 }}
           >
             {/* Header */}
