@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
+import { useCurrency } from '@/context/CurrencyContext'
 import { LOGIN_PATH } from '@/const'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -58,18 +59,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Format currency to UGX                                             */
-/* ------------------------------------------------------------------ */
-function formatUGX(amount: number): string {
-  return new Intl.NumberFormat('en-UG', {
-    style: 'currency',
-    currency: 'UGX',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-/* ------------------------------------------------------------------ */
 /*  Format date                                                        */
 /* ------------------------------------------------------------------ */
 function fmtDate(d: string | Date | null): string {
@@ -85,6 +74,7 @@ function fmtDate(d: string | Date | null): string {
 /*  Tab 1: Pending Properties                                          */
 /* ------------------------------------------------------------------ */
 function PendingPropertiesTab() {
+  const { formatPrice } = useCurrency()
   const utils = trpc.useUtils()
   const { data: pendingList, isLoading } = trpc.admin.listPendingProperties.useQuery()
 
@@ -134,7 +124,7 @@ function PendingPropertiesTab() {
               <TableCell className="font-medium text-charcoal">{property.title}</TableCell>
               <TableCell className="text-slate">{property.location}</TableCell>
               <TableCell className="font-medium text-deep-forest">
-                {formatUGX(property.pricePerNight)}
+                {formatPrice(property.pricePerNight)}
               </TableCell>
               <TableCell className="text-slate">{property.ownerId}</TableCell>
               <TableCell className="text-slate">{fmtDate(property.createdAt)}</TableCell>
@@ -172,6 +162,7 @@ function PendingPropertiesTab() {
 /*  Tab 2: All Bookings                                                */
 /* ------------------------------------------------------------------ */
 function AllBookingsTab() {
+  const { formatPrice } = useCurrency()
   const [page, setPage] = useState(1)
   const limit = 10
 
@@ -225,7 +216,7 @@ function AllBookingsTab() {
                     {fmtDate(booking.checkIn)} — {fmtDate(booking.checkOut)}
                   </TableCell>
                   <TableCell className="font-medium text-deep-forest">
-                    {formatUGX(booking.totalPrice)}
+                    {formatPrice(booking.totalPrice)}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={booking.status} />
@@ -277,6 +268,7 @@ function AllBookingsTab() {
 /*  Tab 3: Platform Stats                                              */
 /* ------------------------------------------------------------------ */
 function PlatformStatsTab() {
+  const { formatPrice } = useCurrency()
   const { data: stats, isLoading } = trpc.admin.getStats.useQuery()
 
   if (isLoading) {
@@ -313,7 +305,7 @@ function PlatformStatsTab() {
     },
     {
       title: 'Total Revenue',
-      value: formatUGX(stats.totalRevenue),
+      value: formatPrice(stats.totalRevenue),
       icon: CreditCard,
       color: 'text-savanna-gold',
       bg: 'bg-savanna-gold/10',
@@ -448,14 +440,14 @@ function PlatformStatsTab() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-charcoal">Total Revenue</span>
-              <span className="font-bold text-deep-forest">{formatUGX(stats.totalRevenue)}</span>
+              <span className="font-bold text-deep-forest">{formatPrice(stats.totalRevenue)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-charcoal">Avg. per Booking</span>
               <span className="font-medium text-charcoal">
                 {stats.totalBookings > 0
-                  ? formatUGX(Math.round(stats.totalRevenue / stats.totalBookings))
-                  : formatUGX(0)}
+                  ? formatPrice(Math.round(stats.totalRevenue / stats.totalBookings))
+                  : formatPrice(0)}
               </span>
             </div>
           </CardContent>
