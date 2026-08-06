@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useCurrency } from '@/context/CurrencyContext'
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -58,10 +59,10 @@ const SEASON_PASS = {
   savings: 270,
 }
 
-const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string; price: string; badge?: string }[] = [
-  { id: 'multi-share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room. Most affordable. Great for meeting other fans.', price: 'From $22/night per person' },
-  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room. Share with a friend or be paired with another fan.', price: 'From $35/night per person' },
-  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room. Maximum privacy and comfort. Limited availability.', price: 'From $65/night', badge: 'Limited' },
+const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string; priceBase: number; badge?: string }[] = [
+  { id: 'multi-share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room. Most affordable. Great for meeting other fans.', priceBase: 22 },
+  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room. Share with a friend or be paired with another fan.', priceBase: 35 },
+  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room. Maximum privacy and comfort. Limited availability.', priceBase: 65, badge: 'Limited' },
 ]
 
 const QUICK_DATES = [
@@ -498,7 +499,7 @@ function StepGuests({ state, update }: { state: BookingState; update: (p: Partia
                     )}
                   </div>
                   <p className="text-sm text-slate mb-1">{room.desc}</p>
-                  <p className="text-sunset font-medium text-sm">{room.price}</p>
+                  <p className="text-sunset font-medium text-sm">From {formatPrice(toUgx(room.priceBase, 'USD'))}/night per person</p>
                 </div>
                 {isSelected && <Check size={20} className="text-sunset shrink-0" />}
               </div>
@@ -575,7 +576,7 @@ function StepAddons({ state, update }: { state: BookingState; update: (p: Partia
             </div>
             <div>
               <h3 className="font-display font-semibold text-deep-forest">Stadium Shuttle</h3>
-              <p className="text-teal-depth font-semibold">+${PROPERTY.shuttlePrice} per person, per day</p>
+              <p className="text-teal-depth font-semibold">+{formatPrice(toUgx(PROPERTY.shuttlePrice, 'USD'))} per person, per day</p>
             </div>
           </div>
           <Switch
@@ -636,15 +637,15 @@ function StepAddons({ state, update }: { state: BookingState; update: (p: Partia
         <div className="bg-white/60 rounded-lg p-4 mb-5">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-sm text-slate line-through">
-              ${SEASON_PASS.nightlyPrice} &times; {SEASON_PASS.duration} = ${SEASON_PASS.fullPrice}
+              {formatPrice(toUgx(SEASON_PASS.nightlyPrice, 'USD'))} &times; {SEASON_PASS.duration} = {formatPrice(toUgx(SEASON_PASS.fullPrice, 'USD'))}
             </span>
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="font-display text-2xl font-bold text-deep-forest">${SEASON_PASS.discountedPrice}</span>
+            <span className="font-display text-2xl font-bold text-deep-forest">{formatPrice(toUgx(SEASON_PASS.discountedPrice, 'USD'))}</span>
             <span className="text-sm text-slate">Season Pass</span>
           </div>
           <p className="font-display font-semibold text-savanna-gold">
-            You save: ${SEASON_PASS.savings}
+            You save: {formatPrice(toUgx(SEASON_PASS.savings, 'USD'))}
           </p>
         </div>
 
@@ -737,29 +738,29 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
           {state.seasonPass ? (
             <div className="flex justify-between text-sm">
               <span className="text-slate">Season Pass (30 nights)</span>
-              <span className="text-deep-forest font-medium">${SEASON_PASS.discountedPrice}</span>
+              <span className="text-deep-forest font-medium">{formatPrice(toUgx(SEASON_PASS.discountedPrice, 'USD'))}</span>
             </div>
           ) : (
             <>
               <div className="flex justify-between text-sm">
                 <span className="text-slate">Accommodation ({prices.nights} nights)</span>
-                <span className="text-deep-forest">${prices.accommodation}</span>
+                <span className="text-deep-forest">{formatPrice(toUgx(prices.accommodation, 'USD'))}</span>
               </div>
               {state.shuttle && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate">Stadium Shuttle &mdash; ${PROPERTY.shuttlePrice} &times; {state.adults} guests &times; {prices.nights} days</span>
-                  <span className="text-deep-forest">${prices.shuttle}</span>
+                  <span className="text-slate">Stadium Shuttle &mdash; {formatPrice(toUgx(PROPERTY.shuttlePrice, 'USD'))} &times; {state.adults} guests &times; {prices.nights} days</span>
+                  <span className="text-deep-forest">{formatPrice(toUgx(prices.shuttle, 'USD'))}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-slate">Service fee</span>
-                <span className="text-deep-forest">${prices.serviceFee}</span>
+                <span className="text-deep-forest">{formatPrice(toUgx(prices.serviceFee, 'USD'))}</span>
               </div>
             </>
           )}
           <div className="flex justify-between text-sm">
             <span className="text-slate">Taxes (VAT 18%)</span>
-            <span className="text-deep-forest">${prices.taxes}</span>
+            <span className="text-deep-forest">{formatPrice(toUgx(prices.taxes, 'USD'))}</span>
           </div>
         </div>
 
@@ -767,9 +768,9 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
 
         <div className="flex justify-between items-center mb-4">
           <span className="font-display font-bold text-deep-forest text-lg">Total</span>
-          <span className="font-display text-price-display text-deep-forest">${prices.total}</span>
+          <span className="font-display text-price-display text-deep-forest">{formatPrice(toUgx(prices.total, 'USD'))}</span>
         </div>
-        <p className="text-xs text-slate text-center">Price in USD. Charged in UGX at current rate.</p>
+        <p className="text-xs text-slate text-center">All prices converted from USD at current rate.</p>
       </div>
 
       {/* Cancellation Policy */}
@@ -809,7 +810,7 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
             adults: state.adults,
             children: state.children,
             roomType: state.roomType === 'multi-share' ? 'multi_share' : state.roomType,
-            totalPrice: Math.round(parseFloat(prices.total) * 1000) || 50000,
+            totalPrice: Math.round(toUgx(prices.total, 'USD')) || 50000,
             addShuttle: state.shuttle ? 1 : 0,
             seasonPass: state.seasonPass ? 1 : 0,
           })
@@ -818,7 +819,7 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
         <LockIcon size={18} className="mr-2" />
         {createBooking.isPending ? 'Processing...' : 'Confirm & Pay'}
       </Button>
-      <p className="text-xs text-slate text-center mb-2">You will be charged ${prices.total}</p>
+      <p className="text-xs text-slate text-center mb-2">You will be charged {formatPrice(toUgx(prices.total, 'USD'))}</p>
       <div className="flex items-center justify-center gap-1 text-xs text-slate">
         <LockIcon size={12} />
         <span>Secure SSL Encryption</span>
@@ -849,6 +850,7 @@ function StepReview({ state, update }: { state: BookingState; update: (p: Partia
 /* ------------------------------------------------------------------ */
 
 function BookingSummarySidebar({ state }: { state: BookingState }) {
+  const { formatPrice } = useCurrency()
   const prices = usePriceSummary(state)
   const roomLabel = ROOM_TYPES.find(r => r.id === state.roomType)?.title || 'Twin Room'
 
@@ -1020,7 +1022,7 @@ function BookingConfirmation() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate">Total Paid</span>
-              <span className="font-display font-bold text-deep-forest">$434</span>
+              <span className="font-display font-bold text-deep-forest">{formatPrice(toUgx(434, 'USD'))}</span>
             </div>
           </div>
         </motion.div>
@@ -1119,6 +1121,7 @@ function TrustSection() {
 /* ------------------------------------------------------------------ */
 
 export default function Booking() {
+  const { formatPrice, toUgx } = useCurrency()
   const { id } = useParams<{ id: string }>()
   void id
 
