@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import useEmblaCarousel from 'embla-carousel-react'
 import { trpc } from '@/providers/trpc'
+import { useCurrency } from '@/context/CurrencyContext'
 import ReviewsSection from '@/components/ReviewsSection'
 
 /* ------------------------------------------------------------------ */
@@ -474,7 +475,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
       {/* Price Header */}
       <div className="flex items-baseline justify-between mb-4">
         <div className="flex items-baseline gap-1">
-          <span className="font-display text-price-display text-deep-forest">USh {property.pricePerNight.toLocaleString()}</span>
+          <span className="font-display text-price-display text-deep-forest">{formatPrice(property.pricePerNight)}</span>
           <span className="text-slate text-sm">/ night</span>
         </div>
         <div className="flex items-center gap-1 text-sm">
@@ -511,7 +512,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
         <div className="flex items-center justify-between mb-4 p-3 bg-warm-sand rounded-lg">
           <div>
             <p className="text-sm font-medium text-deep-forest">Add Stadium Shuttle</p>
-            <p className="text-xs text-slate">+USh 8,000/day per person</p>
+            <p className="text-xs text-slate">+{formatPrice(8000)}/day per person</p>
           </div>
           <Switch checked={shuttle} onCheckedChange={setShuttle} className="data-[state=checked]:bg-teal-depth" />
         </div>
@@ -520,22 +521,22 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
       {/* Price Breakdown */}
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
-          <span className="text-slate">USh {property.pricePerNight.toLocaleString()} &times; {nights} nights</span>
-          <span className="text-deep-forest">USh {accommodation.toLocaleString()}</span>
+          <span className="text-slate">{formatPrice(property.pricePerNight)} &times; {nights} nights</span>
+          <span className="text-deep-forest">{formatPrice(accommodation)}</span>
         </div>
         {shuttle && (
           <div className="flex justify-between text-sm">
             <span className="text-slate">Shuttle pass</span>
-            <span className="text-deep-forest">USh {shuttleCost.toLocaleString()}</span>
+            <span className="text-deep-forest">{formatPrice(shuttleCost)}</span>
           </div>
         )}
         <div className="flex justify-between text-sm">
           <span className="text-slate">Service fee</span>
-          <span className="text-deep-forest">USh {serviceFee.toLocaleString()}</span>
+          <span className="text-deep-forest">{formatPrice(serviceFee)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-slate">Taxes</span>
-          <span className="text-deep-forest">USh {taxes.toLocaleString()}</span>
+          <span className="text-deep-forest">{formatPrice(taxes)}</span>
         </div>
       </div>
 
@@ -543,7 +544,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
 
       <div className="flex justify-between items-center mb-4">
         <span className="font-display font-bold text-deep-forest">Total</span>
-        <span className="font-display text-price-display text-deep-forest">USh {total.toLocaleString()}</span>
+        <span className="font-display text-price-display text-deep-forest">{formatPrice(total)}</span>
       </div>
 
       {/* CTA Buttons */}
@@ -792,7 +793,7 @@ function SimilarProperties({ properties }: { properties: typeof SIMILAR_PROPERTI
                       </div>
                       <p className="text-sm text-slate mb-3">{prop.location}</p>
                       <div className="flex items-baseline gap-1">
-                        <span className="font-display font-bold text-deep-forest">USh {prop.price.toLocaleString()}</span>
+                        <span className="font-display font-bold text-deep-forest">{formatPrice(Math.round(prop.price / 0.00027))}</span>
                         <span className="text-sm text-slate">/ night</span>
                       </div>
                     </div>
@@ -1032,6 +1033,7 @@ export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>()
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  const { formatPrice } = useCurrency()
   const [saved, setSaved] = useState(false)
   const [showAllAmenities, setShowAllAmenities] = useState(false)
   const [showAllReviews, setShowAllReviews] = useState(false)
