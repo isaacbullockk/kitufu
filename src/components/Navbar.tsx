@@ -160,7 +160,7 @@ export default function Navbar() {
 
       {/* Mobile Menu Drawer */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 top-16 bg-white z-40">
+        <div className="lg:hidden fixed inset-0 top-16 bg-white z-[60]">
           <div className="flex flex-col p-6 gap-4">
             {navLinks.map((link) => (
               <Link
