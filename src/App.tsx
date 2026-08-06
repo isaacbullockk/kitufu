@@ -15,8 +15,8 @@ import AddProperty from './pages/AddProperty'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminSettings from './pages/AdminSettings'
 import PaymentPage from './pages/PaymentPage'
-import RestaurantGuide from './pages/RestaurantGuide'
-import TripPlanner from './pages/TripPlanner'
+import RestaurantGuide from './pages/RestaurantGuide.tsx'
+import TripPlanner from './pages/TripPlanner.tsx'
 import Login from "./pages/Login"
 import NotFound from "./pages/NotFound"
 
