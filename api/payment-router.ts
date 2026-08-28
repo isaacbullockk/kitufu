@@ -126,6 +126,16 @@ export const paymentRouter = createRouter({
         const result = await resp.json();
 
         if (result.status === "success" && result.data?.status === "successful") {
+          // Amount check: never confirm a booking whose payment is short
+          const paid = Number(result.data.amount);
+          const expected = Number(booking[0].totalPrice);
+          if (!Number.isFinite(paid) || paid < expected) {
+            return {
+              success: false,
+              status: "amount_mismatch",
+              message: "Paid amount " + paid + " does not cover booking total " + expected,
+            };
+          }
           await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, booking[0].id));
           return { success: true, status: "confirmed", amount: result.data.amount, currency: result.data.currency };
         } else {
