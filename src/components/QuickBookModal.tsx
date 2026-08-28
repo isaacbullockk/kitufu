@@ -6,6 +6,7 @@ import {
   CreditCard, Check, Phone, Mail, User
 } from 'lucide-react'
 import { trpc } from '@/providers/trpc'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 
 type RoomType = 'multi_share' | 'twin' | 'private'
@@ -33,6 +34,7 @@ function nightsBetween(a: string, b: string): number {
 
 export default function QuickBookModal({ propertyId, price, title, image, isOpen, onClose }: QuickBookModalProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [adults, setAdults] = useState(2)
@@ -53,13 +55,16 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
   const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut])
   const roomInfo = ROOM_TYPES.find(r => r.id === roomType) || ROOM_TYPES[1]
   const perNight = Math.round(price * roomInfo.priceFactor)
-  const total = perNight * nights
+  const subtotal = perNight * nights
+  const serviceFee = nights > 0 ? 28 : 0
+  const taxes = Math.round(subtotal * 0.18)
+  const total = subtotal + serviceFee + taxes
 
   const handleSubmit = () => {
     if (!checkIn || !checkOut || !termsAccepted) return
     createBooking.mutate({
       propertyId,
-      userId: 1,
+      userId: user?.id,
       checkIn,
       checkOut,
       adults,
@@ -68,6 +73,9 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
       totalPrice: total,
       addShuttle: 0,
       seasonPass: 0,
+      contactName,
+      contactPhone,
+      contactEmail,
     })
   }
 
@@ -299,11 +307,15 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                 <div className="bg-warm-sand rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate">USh {perNight.toLocaleString()} × {nights} nights</span>
-                    <span className="text-deep-forest font-medium">USh {total.toLocaleString()}</span>
+                    <span className="text-deep-forest font-medium">USh {subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate">Service fee</span>
-                    <span className="text-deep-forest font-medium">USh 0</span>
+                    <span className="text-deep-forest font-medium">USh {serviceFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate">Taxes (18%)</span>
+                    <span className="text-deep-forest font-medium">USh {taxes.toLocaleString()}</span>
                   </div>
                   <div className="border-t border-light-grey pt-2 flex justify-between items-center">
                     <span className="font-display font-bold text-deep-forest">Total</span>
