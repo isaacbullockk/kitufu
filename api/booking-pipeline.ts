@@ -311,6 +311,43 @@ export async function run_booking_qa(
   return extractJson<QaResult>(raw);
 }
 
+
+/* ------------------------- bounded pipeline queue ---------------------------
+ * The booking mutation must never wait on 3 sequential AI calls (up to ~9 min).
+ * Jobs are queued in-process and worked off with bounded concurrency, so a
+ * booking burst can't exhaust the event loop / memory. Fire-and-forget for the
+ * caller; the queue drains in the background.
+ */
+const PIPELINE_CONCURRENCY = 2;   // at most N model pipelines in flight
+const PIPELINE_QUEUE_MAX = 200;   // drop + log beyond this (protects memory)
+
+const pipelineQueue: BookingPayload[] = [];
+let pipelineActive = 0;
+
+async function pipelineWorker(): Promise<void> {
+  while (pipelineQueue.length > 0 && pipelineActive < PIPELINE_CONCURRENCY) {
+    const job = pipelineQueue.shift();
+    if (!job) break;
+    pipelineActive++;
+    runBookingPipeline(job)
+      .catch((e) => console.error("[pipeline] job failed:", e))
+      .finally(() => {
+        pipelineActive--;
+        void pipelineWorker();
+      });
+  }
+}
+
+/** Enqueue a booking for async AI processing. Returns immediately. */
+export function enqueueBookingPipeline(payload: BookingPayload): void {
+  if (pipelineQueue.length >= PIPELINE_QUEUE_MAX) {
+    console.error("[pipeline] queue full (" + PIPELINE_QUEUE_MAX + ") — dropping booking " + payload.bookingRef);
+    return;
+  }
+  pipelineQueue.push(payload);
+  void pipelineWorker();
+}
+
 /* ------------------------------ ORCHESTRATOR ------------------------------- */
 
 /**
