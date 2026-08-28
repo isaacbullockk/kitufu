@@ -4,7 +4,7 @@ import { randomInt } from "crypto";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { bookings, properties, availability, users } from "@db/schema";
-import { eq, and, desc, lt, gt, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { runBookingPipeline, type BookingPayload } from "./booking-pipeline";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,7 +14,7 @@ const TAX_RATE = 0.18;
 
 function generateBookingRef(): string {
   const year = new Date().getFullYear();
-  const random = randomInt(10000, 1000000);
+  const random = randomInt(100000, 10000000); // 7-digit — collision-safe at booking volumes
   return "KIT-" + year + "-" + random;
 }
 
@@ -62,24 +62,35 @@ export const bookingRouter = createRouter({
       const bookingRef = generateBookingRef();
 
       // Atomic: conflict check + booking insert + availability block in ONE transaction
-      const bookingId = await db.transaction(async (tx) => {
+      const { id: bookingId, ref: finalRef } = await db.transaction(async (tx) => {
         const conflicts = await tx.select({ count: sql<number>`count(*)` }).from(bookings).where(
           and(
             eq(bookings.propertyId, input.propertyId),
             sql`${bookings.status} IN (\'pending\', \'confirmed\')`,
-            lt(bookings.checkIn, input.checkOut),
-            gt(bookings.checkOut, input.checkIn),
+            sql`${bookings.checkIn} < ${input.checkOut}`,
+            sql`${bookings.checkOut} > ${input.checkIn}`,
           )
         );
         if ((conflicts[0]?.count || 0) > 0) {
           throw new TRPCError({ code: "CONFLICT", message: "This property is not available for the selected dates" });
         }
 
-        const result = await tx.insert(bookings).values({
-          propertyId: input.propertyId, userId: effectiveUserId, checkIn: input.checkIn, checkOut: input.checkOut,
-          adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: serverTotal,
-          status: "pending", addShuttle: input.addShuttle, seasonPass: input.seasonPass, bookingRef,
-        });
+        let result: any;
+        let ref = bookingRef;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            result = await tx.insert(bookings).values({
+              propertyId: input.propertyId, userId: effectiveUserId, checkIn: input.checkIn, checkOut: input.checkOut,
+              adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: serverTotal,
+              status: "pending", addShuttle: input.addShuttle, seasonPass: input.seasonPass, bookingRef: ref,
+            });
+            break;
+          } catch (e: any) {
+            // Unique-violation on bookingRef → retry with a fresh ref
+            if (String(e?.code) === "ER_DUP_ENTRY" && attempt < 2) { ref = generateBookingRef(); continue; }
+            throw e;
+          }
+        }
         const id = Number(result[0].insertId);
 
         // Batch availability block — one insert, all nights (checkOut day excluded: guest leaves that morning)
@@ -90,9 +101,13 @@ export const bookingRouter = createRouter({
           rows.push({ propertyId: input.propertyId, date: d.toISOString().split("T")[0], isBooked: 1, bookingId: id });
         }
         if (rows.length > 0) {
-          await tx.insert(availability).values(rows).onDuplicateKeyUpdate({ set: { isBooked: 1, bookingId: id } });
+          // availability has no unique key on (propertyId, date) — delete-then-insert keeps it idempotent
+          await tx.delete(availability).where(
+            and(eq(availability.propertyId, input.propertyId), inArray(availability.date, rows.map((r) => r.date) as any))
+          );
+          await tx.insert(availability).values(rows);
         }
-        return id;
+        return { id, ref };
       });
 
       // AI pipeline (Nemotron logistics -> Kimi comms -> Nemotron QA) runs async; webhook fires only after QA approval
@@ -103,7 +118,7 @@ export const bookingRouter = createRouter({
           const hostRows = await db2.select().from(users).where(eq(users.id, property[0].ownerId)).limit(1);
           const payload: BookingPayload = {
             bookingId,
-            bookingRef,
+            bookingRef: finalRef,
             propertyId: input.propertyId,
             propertyTitle: property[0].title,
             propertyLocation: property[0].location,
@@ -113,21 +128,25 @@ export const bookingRouter = createRouter({
             hostName: hostRows[0]?.name || "Host",
             checkIn: input.checkIn,
             checkOut: input.checkOut,
+            nights,
             adults: input.adults,
             children: input.children,
             roomType: input.roomType,
             addShuttle: input.addShuttle,
             seasonPass: input.seasonPass,
+            priceSubtotal: perNight * nights,
+            serviceFee: SERVICE_FEE_UGX,
+            vat: Math.round(perNight * nights * TAX_RATE),
             totalPrice: serverTotal,
             currency: "UGX",
           };
           await runBookingPipeline(payload);
         } catch (err) {
-          console.error("[BOOKING] AI pipeline error for " + bookingRef + ":", err);
+          console.error("[BOOKING] AI pipeline error for " + finalRef + ":", err);
         }
       })();
 
-      return { id: bookingId, bookingRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: serverTotal, status: "pending", message: "Booking created successfully. Payment required to confirm." };
+      return { id: bookingId, bookingRef: finalRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: serverTotal, status: "pending", message: "Booking created successfully. Payment required to confirm." };
     }),
 
   listByUser: publicQuery.input(z.object({ userId: z.number() })).query(async ({ input, ctx }) => {
@@ -167,8 +186,10 @@ export const bookingRouter = createRouter({
     }
     if (existing[0].status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is already cancelled" });
     if (existing[0].status === "completed") throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot cancel a completed booking" });
-    await db.update(bookings).set({ status: "cancelled" }).where(eq(bookings.id, input.id));
-    await db.update(availability).set({ isBooked: 0, bookingId: sql`NULL` }).where(eq(availability.bookingId, input.id));
+    await db.transaction(async (tx) => {
+      await tx.update(bookings).set({ status: "cancelled" }).where(eq(bookings.id, input.id));
+      await tx.update(availability).set({ isBooked: 0, bookingId: sql`NULL` }).where(eq(availability.bookingId, input.id));
+    });
     return { success: true, bookingRef: existing[0].bookingRef };
   }),
 
@@ -188,9 +209,22 @@ export const bookingRouter = createRouter({
     return { success: true, bookingRef: existing[0].bookingRef };
   }),
 
+  // Public payment lookup — returns only what the payment page needs (no userId/PII)
   byRef: publicQuery.input(z.object({ bookingRef: z.string() })).query(async ({ input }) => {
     const db = getDb();
-    const result = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
+    const result = await db.select({
+      bookingRef: bookings.bookingRef,
+      propertyId: bookings.propertyId,
+      totalPrice: bookings.totalPrice,
+      status: bookings.status,
+      checkIn: bookings.checkIn,
+      checkOut: bookings.checkOut,
+      roomType: bookings.roomType,
+      adults: bookings.adults,
+      children: bookings.children,
+      addShuttle: bookings.addShuttle,
+      seasonPass: bookings.seasonPass,
+    }).from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
     if (result.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
     return result[0];
   }),
