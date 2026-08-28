@@ -12,7 +12,15 @@ const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
-app.get("/api/health", (c) => c.json({ status: "ok", service: "kitufu", version: "1.0.0", ts: Date.now() }));
+app.get("/api/health", (c) =>
+  c.json({
+    status: "ok",
+    service: "kitufu",
+    version: "1.0.0",
+    commit: process.env.RAILWAY_GIT_COMMIT_SHA ?? "unknown",
+    ts: Date.now(),
+  }),
+);
 
 // DB setup endpoint — manually trigger table creation
 app.get("/api/db-setup", async (c) => {
