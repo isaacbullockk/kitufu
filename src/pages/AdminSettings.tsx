@@ -12,38 +12,17 @@ export default function AdminSettings() {
   const { user, isLoading } = useAuth()
   const config = useSiteConfig()
 
-  // Loading state while checking auth
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-sunset border-t-transparent" />
-      </div>
-    )
-  }
-
-  // Redirect if not authenticated
-  if (!user) {
-    useEffect(() => {
-      navigate(LOGIN_PATH)
-    }, [navigate])
-    return null
-  }
-
-  // Access denied if not admin
-  if (user.role !== 'admin') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
-        <div className="flex flex-col items-center gap-4">
-          <ShieldAlert className="h-16 w-16 text-earth-red" />
-          <h1 className="text-2xl font-bold text-white">Access Denied</h1>
-          <p className="text-gray-400">You need admin privileges to access this page.</p>
-        </div>
-      </div>
-    )
-  }
+  // ALL hooks must live above every conditional return (rules of hooks)
   const [form, setForm] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate(LOGIN_PATH)
+    }
+  }, [isLoading, user, navigate]);
 
   useEffect(() => {
     setForm({
@@ -115,6 +94,39 @@ export default function AdminSettings() {
       )}
     </div>
   );
+
+  // ---- Auth guards (after all hooks) ----
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-sunset border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
+          <ShieldAlert className="h-16 w-16 text-sunset" />
+          <h1 className="text-2xl font-bold text-white">Login Required</h1>
+          <p className="text-gray-400">Redirecting you to login...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-deep-forest">
+        <div className="flex flex-col items-center gap-4">
+          <ShieldAlert className="h-16 w-16 text-earth-red" />
+          <h1 className="text-2xl font-bold text-white">Access Denied</h1>
+          <p className="text-gray-400">You need admin privileges to access this page.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-deep-forest pt-24 pb-16">
