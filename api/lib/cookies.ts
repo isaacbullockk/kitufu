@@ -11,7 +11,10 @@ export function getSessionCookieOptions(headers: Headers): CookieOptions {
   return {
     httpOnly: true,
     path: "/",
-    sameSite: localhost ? "Lax" : "None",
+    // Same-origin app (kitufu.com serves both SPA and API); no cross-site flow
+    // remains now that OAuth is gone, so Lax is sufficient and blocks CSRF
+    // via cross-site POSTs.
+    sameSite: "Lax",
     secure: !localhost,
   };
 }
