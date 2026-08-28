@@ -69,22 +69,49 @@ function getProvider(): Provider | null {
 
 /* ---------------------------------- types ---------------------------------- */
 
+
+/** Strip control chars + cap length so guest/host-supplied strings can't hijack the AI prompt. */
+function sanitizeField(v: string, max = 200): string {
+  return String(v ?? "")
+    .replace(/[\x00-\x1f\x7f]/g, " ")   // control chars
+    .replace(/`/g, "'")                     // backticks (fence escape)
+    .slice(0, max)
+    .trim();
+}
+
+function sanitizePayload(p: BookingPayload): BookingPayload {
+  return {
+    ...p,
+    propertyTitle: sanitizeField(p.propertyTitle, 150),
+    propertyLocation: sanitizeField(p.propertyLocation, 150),
+    distanceToStadium: sanitizeField(p.distanceToStadium, 60),
+    guestName: sanitizeField(p.guestName, 120),
+    hostName: sanitizeField(p.hostName, 120),
+  };
+}
+
 export interface BookingPayload {
+  bookingId: number;
   bookingRef: string;
   propertyId: number;
-  propertyName: string;
-  hostUnionId: string;
+  propertyTitle: string;
+  propertyLocation: string;
+  distanceToStadium: string;
   guestName: string;
   guestEmail: string;
+  hostName: string;
   checkIn: string; // YYYY-MM-DD
   checkOut: string; // YYYY-MM-DD
   nights: number;
   adults: number;
   children: number;
   roomType: "multi_share" | "twin" | "private";
-  addShuttle: boolean;
-  seasonPass: boolean;
-  totalPriceUgx: number;
+  addShuttle: number; // 0 | 1
+  seasonPass: number; // 0 | 1
+  priceSubtotal: number; // UGX — room only
+  serviceFee: number; // UGX
+  vat: number; // UGX
+  totalPrice: number; // UGX — subtotal + serviceFee + vat (server-authoritative)
   currency: "UGX";
 }
 
@@ -242,7 +269,7 @@ export async function run_booking_communications(
       "Output ONLY JSON.",
     ].join(" "),
     `Logistics blueprint:\n${JSON.stringify(logistics_json, null, 2)}\n\n` +
-      `Guest name: ${payload.guestName}\nProperty: ${payload.propertyName}\n\n` +
+      `Guest name: ${payload.guestName}\nProperty: ${payload.propertyTitle}\n\n` +
       `Return JSON with keys: guest_subject, guest_email (confirmation with ` +
       `booking ref, dates, room, price breakdown incl. VAT, strict_terms as a ` +
       `bulleted list), host_subject, host_email (new-booking alert: guest ` +
@@ -292,8 +319,9 @@ export async function run_booking_qa(
  * regardless of AI availability.
  */
 export async function runBookingPipeline(
-  payload: BookingPayload,
+  rawPayload: BookingPayload,
 ): Promise<PipelineResult> {
+  const payload = sanitizePayload(rawPayload);
   if (!getProvider()) {
     console.log("[pipeline] no OPENROUTER_API_KEY / NVIDIA_API_KEY set — skipping");
     return { status: "skipped" };
