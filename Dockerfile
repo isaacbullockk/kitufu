@@ -12,11 +12,16 @@ ENV VITE_APP_ID=$VITE_APP_ID
 RUN npm config set legacy-peer-deps true
 COPY package.json ./
 RUN rm -f package-lock.json && npm install
+# Cache-bust: Railway injects RAILWAY_GIT_COMMIT_SHA per commit — everything below re-runs on every deploy
+ARG RAILWAY_GIT_COMMIT_SHA=unknown
+RUN echo "build commit: $RAILWAY_GIT_COMMIT_SHA"
 COPY . .
 RUN npx vite build && npx esbuild api/boot.ts --platform=node --bundle --format=esm --outdir=dist --banner:js="import { createRequire } from 'module';const require = createRequire(import.meta.url);"
 
 FROM node:20-slim AS production
 WORKDIR /app
+ARG RAILWAY_GIT_COMMIT_SHA=unknown
+ENV RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA
 ENV NODE_ENV=production
 ENV PORT=3000
 RUN npm config set legacy-peer-deps true
@@ -42,3 +47,5 @@ CMD ["npm", "start"]
 # Cache bust v7 mobile-fixes 1786022235
 
 # Cache bust v8 vite-env-args 1786024000
+
+# Cache bust v9 commit-sha-health 1787924000
