@@ -10,8 +10,8 @@
  *   2. NVIDIA_API_KEY      → https://integrate.api.nvidia.com/v1  (fallback)
  *   3. neither             → pipeline is skipped gracefully (booking still succeeds)
  *
- * OpenRouter model ids: nvidia/nemotron-3-ultra-550b-a55b (":free" suffix = free tier),
- * moonshotai/kimi-k2.5. On NVIDIA NIM the same ids are used as-is.
+ * OpenRouter model ids: nvidia/nemotron-3-ultra-550b-a55b, moonshotai/kimi-k2.5.
+ * On NVIDIA NIM the same ids are used as-is.
  */
 
 const NIM_BASE = "https://integrate.api.nvidia.com/v1";
@@ -19,9 +19,9 @@ const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
 const MODELS = {
   openrouter: {
-    logistics: "nvidia/nemotron-3-ultra-550b-a55b:free",
+    logistics: "nvidia/nemotron-3-ultra-550b-a55b",
     comms: "moonshotai/kimi-k2.5",
-    qa: "nvidia/nemotron-3-ultra-550b-a55b:free",
+    qa: "nvidia/nemotron-3-ultra-550b-a55b",
   },
   nim: {
     logistics: "nvidia/nemotron-3-ultra-550b-a55b",
