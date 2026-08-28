@@ -55,22 +55,22 @@ export default function PaymentPage() {
     if (!booking) return
     const redirectUrl = window.location.origin + "/payment?ref=" + bookingRef
 
+    // Server derives the charge from the booking record — no client-side math
     if (method === "flutterwave") {
       initializeFlutterwave.mutate({
-        bookingRef, propertyId: booking.propertyId, amount: Math.round((booking.totalPrice || 0) * 1.05),
+        bookingRef, propertyId: booking.propertyId,
         currency: "UGX", email, name, phone: phone || undefined, redirectUrl,
       })
     } else {
       initializeStripe.mutate({
-        bookingRef, amount: Math.round(((booking.totalPrice || 0) * 1.05) / 3700),
-        currency: "usd", propertyName: "Kitufu Booking " + bookingRef,
+        bookingRef, propertyName: "Kitufu Booking " + bookingRef,
         customerEmail: email, successUrl: redirectUrl, cancelUrl: redirectUrl + "&cancelled=1",
       })
     }
   }
 
   const isPending = initializeFlutterwave.isPending || initializeStripe.isPending
-  const totalAmount = Math.round((booking?.totalPrice || 0) * 1.05)
+  const totalAmount = booking?.totalPrice || 0
 
   // Success state
   if (paymentStatus === "success") {
@@ -122,9 +122,8 @@ export default function PaymentPage() {
 
           {/* Price summary */}
           <div className="bg-deep-forest rounded-xl p-5 mb-6">
-            <div className="flex justify-between mb-2"><span className="text-gray-400">Accommodation</span><span className="text-white">USh {booking.totalPrice?.toLocaleString()}</span></div>
-            <div className="flex justify-between mb-2"><span className="text-gray-400">Service fee (5%)</span><span className="text-white">USh {Math.round((booking.totalPrice || 0) * 0.05).toLocaleString()}</span></div>
-            <div className="border-t border-gray-700 pt-2 flex justify-between"><span className="text-white font-semibold">Total</span><span className="text-savanna-gold font-bold text-lg">USh {totalAmount.toLocaleString()}</span></div>
+            <div className="flex justify-between mb-2"><span className="text-gray-400">Booking total (incl. service fee & 18% VAT)</span><span className="text-white">USh {booking.totalPrice?.toLocaleString()}</span></div>
+            <div className="border-t border-gray-700 pt-2 flex justify-between"><span className="text-white font-semibold">Total due</span><span className="text-savanna-gold font-bold text-lg">USh {totalAmount.toLocaleString()}</span></div>
           </div>
 
           {/* Payment method selector */}
