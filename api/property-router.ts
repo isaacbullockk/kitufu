@@ -106,7 +106,7 @@ export const propertyRouter = createRouter({
 
         // Validate owner exists
         const owner = await db
-          .select({ id: sql<number>"1" })
+          .select({ id: sql<number>`1` })
           .from(sql`users`)
           .where(sql`id = ${input.ownerId}`)
           .limit(1);
