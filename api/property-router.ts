@@ -13,7 +13,6 @@ export const propertyRouter = createRouter({
         city: z.string().optional(),
         minPrice: z.number().min(0).optional(),
         maxPrice: z.number().min(0).optional(),
-        roomType: z.enum(["multi_share", "twin", "private"]).optional(),
         hasShuttle: z.boolean().optional(),
         isGroupFriendly: z.boolean().optional(),
         status: z.enum(["pending", "approved", "rejected"]).optional(),
@@ -28,7 +27,6 @@ export const propertyRouter = createRouter({
         if (input?.city) conditions.push(eq(properties.location, input.city));
         if (input?.minPrice !== undefined) conditions.push(sql`${properties.pricePerNight} >= ${input.minPrice}`);
         if (input?.maxPrice !== undefined) conditions.push(sql`${properties.pricePerNight} <= ${input.maxPrice}`);
-        if (input?.roomType) conditions.push(sql`${properties.amenities} LIKE ${`%${input.roomType}%`}`);
         if (input?.hasShuttle !== undefined) conditions.push(eq(properties.hasShuttle, input.hasShuttle ? 1 : 0));
         if (input?.isGroupFriendly !== undefined) conditions.push(eq(properties.isGroupFriendly, input.isGroupFriendly ? 1 : 0));
         if (input?.status) conditions.push(eq(properties.status, input.status));
