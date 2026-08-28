@@ -1,6 +1,14 @@
 # Kitufu Residences — Production Dockerfile for Railway
 FROM node:20-slim AS builder
 WORKDIR /app
+
+# Vite bakes VITE_* vars into the bundle at BUILD time.
+# Railway only forwards service variables into docker build when declared as ARG.
+ARG VITE_KIMI_AUTH_URL
+ARG VITE_APP_ID
+ENV VITE_KIMI_AUTH_URL=$VITE_KIMI_AUTH_URL
+ENV VITE_APP_ID=$VITE_APP_ID
+
 RUN npm config set legacy-peer-deps true
 COPY package.json ./
 RUN rm -f package-lock.json && npm install
@@ -32,3 +40,5 @@ CMD ["npm", "start"]
 # Cache bust v6 1786020253
 
 # Cache bust v7 mobile-fixes 1786022235
+
+# Cache bust v8 vite-env-args 1786024000
