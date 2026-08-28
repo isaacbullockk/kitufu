@@ -9,7 +9,7 @@ import { LOGIN_PATH } from '../const'
 
 export default function AdminSettings() {
   const navigate = useNavigate()
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, logout } = useAuth()
   const config = useSiteConfig()
 
   // ALL hooks must live above every conditional return (rules of hooks)
@@ -119,10 +119,19 @@ export default function AdminSettings() {
   if (user.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-deep-forest">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
           <ShieldAlert className="h-16 w-16 text-earth-red" />
           <h1 className="text-2xl font-bold text-white">Access Denied</h1>
           <p className="text-gray-400">You need admin privileges to access this page.</p>
+          <p className="text-sm text-gray-500">
+            Signed in as <span className="font-medium text-white">{user.email ?? user.name}</span> (role: {user.role})
+          </p>
+          <button
+            onClick={() => logout()}
+            className="rounded-lg bg-sunset px-6 py-2.5 text-sm font-medium text-white hover:bg-sunset/90 transition-colors"
+          >
+            Sign out &amp; switch account
+          </button>
         </div>
       </div>
     )

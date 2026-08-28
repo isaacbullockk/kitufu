@@ -462,7 +462,7 @@ function PlatformStatsTab() {
 /* ------------------------------------------------------------------ */
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, logout } = useAuth()
 
   // Hooks must run unconditionally — redirect happens here, never mid-render
   useEffect(() => {
@@ -503,10 +503,19 @@ export default function AdminDashboard() {
   if (user.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-warm-sand">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
           <ShieldAlert className="h-16 w-16 text-earth-red" />
           <h1 className="text-2xl font-bold text-charcoal">Access Denied</h1>
           <p className="text-slate">You need admin privileges to access this page.</p>
+          <p className="text-sm text-slate/70">
+            Signed in as <span className="font-medium text-charcoal">{user.email ?? user.name}</span> (role: {user.role})
+          </p>
+          <button
+            onClick={() => logout()}
+            className="rounded-lg bg-deep-forest px-6 py-2.5 text-sm font-medium text-white hover:bg-deep-forest/90 transition-colors"
+          >
+            Sign out &amp; switch account
+          </button>
         </div>
       </div>
     )

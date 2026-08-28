@@ -6,6 +6,7 @@ import { appRouter } from "./router";
 import { createContext } from "./context";
 import { createLoginHandler, createRegisterHandler } from "./auth";
 import { autoSeed } from "./auto-seed";
+import { env } from "./lib/env";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -18,6 +19,8 @@ app.get("/api/health", (c) =>
     service: "kitufu",
     version: "1.0.0",
     commit: process.env.RAILWAY_GIT_COMMIT_SHA ?? "unknown",
+    authReady: env.isSecretSecure,
+    ownerConfigured: env.ownerEmail !== "",
     ts: Date.now(),
   }),
 );
