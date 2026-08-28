@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery, adminQuery } from "./middleware";
+import { createRouter, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { properties, bookings, users } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
@@ -112,7 +112,7 @@ export const adminRouter = createRouter({
     }),
 
   // List all bookings (paginated)
-  listAllBookings: publicQuery
+  listAllBookings: adminQuery
     .input(
       z.object({
         limit: z.number().min(1).max(100).default(20),
@@ -132,7 +132,7 @@ export const adminRouter = createRouter({
         }
 
         const items = await query.limit(limit).offset(offset).orderBy(desc(bookings.createdAt));
-        const total = await db.select({ count: sql<number>"count(*)" }).from(bookings);
+        const total = await db.select({ count: sql<number>`count(*)` }).from(bookings);
 
         return {
           items,
@@ -146,18 +146,18 @@ export const adminRouter = createRouter({
     }),
 
   // Get platform stats
-  getStats: publicQuery
+  getStats: adminQuery
     .query(async () => {
       try {
         const db = getDb();
 
-        const totalProperties = await db.select({ count: sql<number>"count(*)" }).from(properties);
-        const totalBookings = await db.select({ count: sql<number>"count(*)" }).from(bookings);
-        const pendingProperties = await db.select({ count: sql<number>"count(*)" }).from(properties).where(eq(properties.status, "pending"));
-        const approvedProperties = await db.select({ count: sql<number>"count(*)" }).from(properties).where(eq(properties.status, "approved"));
+        const totalProperties = await db.select({ count: sql<number>`count(*)` }).from(properties);
+        const totalBookings = await db.select({ count: sql<number>`count(*)` }).from(bookings);
+        const pendingProperties = await db.select({ count: sql<number>`count(*)` }).from(properties).where(eq(properties.status, "pending"));
+        const approvedProperties = await db.select({ count: sql<number>`count(*)` }).from(properties).where(eq(properties.status, "approved"));
 
         const revenue = await db
-          .select({ total: sql<number>"COALESCE(SUM(totalPrice), 0)" })
+          .select({ total: sql<number>`COALESCE(SUM(totalPrice), 0)` })
           .from(bookings)
           .where(eq(bookings.status, "confirmed"));
 
