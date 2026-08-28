@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
 import { trpc } from '@/providers/trpc'
+import { useAuth } from '@/hooks/useAuth'
 import { motion } from 'framer-motion'
 import {
   Calendar, Users, Bed, Lock, Minus, Plus, MapPin, Star,
@@ -26,6 +27,7 @@ function nightsBetween(a: string, b: string): number {
 export default function Booking() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const { data: property } = trpc.property.byId.useQuery(
     { id: Number(id) },
@@ -61,7 +63,7 @@ export default function Booking() {
     if (!checkIn || !checkOut || !termsAccepted || !property) return
     createBooking.mutate({
       propertyId: property.id,
-      userId: 1,
+      userId: user?.id,
       checkIn,
       checkOut,
       adults,
@@ -70,6 +72,9 @@ export default function Booking() {
       totalPrice: total,
       addShuttle: 0,
       seasonPass: 0,
+      contactName,
+      contactPhone,
+      contactEmail,
     })
   }
 
