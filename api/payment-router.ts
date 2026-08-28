@@ -31,13 +31,30 @@ async function flutterwaveRequest(endpoint: string, body: any): Promise<any> {
   return resp.json();
 }
 
+
+// Redirect targets must stay on our own origin — blocks open-redirect / phishing via payment callbacks
+const ALLOWED_REDIRECT_HOSTS = new Set([
+  "kitufu.com", "www.kitufu.com", "localhost", "127.0.0.1",
+]);
+function assertAllowedRedirect(url: string) {
+  try {
+    const h = new URL(url).hostname;
+    if (!ALLOWED_REDIRECT_HOSTS.has(h) && !h.endsWith(".kitufu.com")) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Redirect URL host not allowed" });
+    }
+  } catch (e) {
+    if (e instanceof TRPCError) throw e;
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid redirect URL" });
+  }
+}
+
 export const paymentRouter = createRouter({
   // Initialize a payment — returns Flutterwave checkout link
   initialize: publicQuery
     .input(z.object({
       bookingRef: z.string().min(1),
       propertyId: z.number().positive(),
-      amount: z.number().positive(),
+      amount: z.number().positive().optional(), // IGNORED — amount is server-authoritative
       currency: z.string().default("UGX"),
       email: z.string().email(),
       name: z.string().min(1),
@@ -45,6 +62,7 @@ export const paymentRouter = createRouter({
       redirectUrl: z.string().url(),
     }))
     .mutation(async ({ input }) => {
+      assertAllowedRedirect(input.redirectUrl);
       if (!FLW_SECRET) {
         // Demo mode: return a mock payment link
         return {
@@ -55,14 +73,19 @@ export const paymentRouter = createRouter({
       }
 
       try {
-        // Get property name for display
+        // Server-authoritative amount: look up the booking, never trust the client
         const db = getDb();
+        const bk = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
+        if (bk.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+        if (bk[0].status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is not awaiting payment (status: " + bk[0].status + ")" });
+        const serverAmount = bk[0].totalPrice;
+
         const prop = await db.select().from(properties).where(eq(properties.id, input.propertyId)).limit(1);
         const propertyTitle = prop[0]?.title || "Kitufu Booking";
 
         const payload: FlutterwavePayload = {
           tx_ref: input.bookingRef,
-          amount: input.amount,
+          amount: serverAmount,
           currency: input.currency,
           redirect_url: input.redirectUrl,
           customer: {
@@ -113,8 +136,8 @@ export const paymentRouter = createRouter({
           throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
         }
 
-        if (!FLW_SECRET || input.transactionId.startsWith("demo-")) {
-          // Demo mode: auto-confirm
+        if (!FLW_SECRET) {
+          // Demo mode ONLY when no Flutterwave key is configured at all
           await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, booking[0].id));
           return { success: true, status: "confirmed", demo: true };
         }
@@ -123,9 +146,17 @@ export const paymentRouter = createRouter({
         const resp = await fetch("https://api.flutterwave.com/v3/transactions/" + input.transactionId + "/verify", {
           headers: { "Authorization": "Bearer " + FLW_SECRET },
         });
-        const result = await resp.json();
+        const result = (await resp.json()) as any;
 
         if (result.status === "success" && result.data?.status === "successful") {
+          // Bind the transaction to THIS booking — blocks replaying one payment across many bookings
+          if (result.data.tx_ref !== input.bookingRef) {
+            return { success: false, status: "reference_mismatch", message: "Transaction does not belong to this booking" };
+          }
+          // Only a pending booking can be confirmed — blocks re-using the same transaction
+          if (booking[0].status !== "pending") {
+            return { success: false, status: "already_" + booking[0].status, message: "Booking is not awaiting payment" };
+          }
           // Amount check: never confirm a booking whose payment is short
           const paid = Number(result.data.amount);
           const expected = Number(booking[0].totalPrice);
