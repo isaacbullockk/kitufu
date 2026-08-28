@@ -4,15 +4,14 @@ import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
-import { createOAuthCallbackHandler, createOAuthLoginHandler } from "./kimi/auth";
-import { Paths } from "@contracts/constants";
+import { createLoginHandler, createRegisterHandler } from "./auth";
 import { autoSeed } from "./auto-seed";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
-app.get(Paths.oauthCallback, createOAuthCallbackHandler());
-app.get("/api/oauth/login", createOAuthLoginHandler());
+app.post("/api/auth/register", createRegisterHandler());
+app.post("/api/auth/login", createLoginHandler());
 app.get("/api/health", (c) =>
   c.json({
     status: "ok",

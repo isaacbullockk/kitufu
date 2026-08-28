@@ -5,32 +5,34 @@ function getEnv(name: string, fallback: string = ""): string {
 
 // Railway MySQL auto-detect: tries DATABASE_URL first, then Railway's MYSQL_URL
 const dbUrl = getEnv("DATABASE_URL") || getEnv("MYSQL_URL") || getEnv("MYSQL_PUBLIC_URL") || "";
+const appSecret = getEnv("APP_SECRET", "dev-secret");
+const isProduction = process.env.NODE_ENV === "production";
 
-if (process.env.NODE_ENV === "production") {
+// Auth must fail closed in production when the signing secret is weak —
+// otherwise anyone can forge session cookies.
+const isSecretSecure = !isProduction || (appSecret !== "dev-secret" && appSecret.length >= 32);
+
+if (isProduction) {
   // Soft warnings — never crash the process, but surface misconfiguration loudly in logs
-  if (getEnv("APP_SECRET", "dev-secret") === "dev-secret") {
+  if (!isSecretSecure) {
     console.error(
-      "[SECURITY] APP_SECRET is not set — session tokens are signed with a public default secret. " +
-      "Set APP_SECRET in Railway variables immediately.",
+      "[SECURITY] APP_SECRET is unset or too short — authentication is DISABLED (fail-closed). " +
+      "Set APP_SECRET to a random string of at least 32 characters (openssl rand -hex 32).",
     );
   }
   if (!dbUrl) {
     console.error("[CONFIG] No DATABASE_URL / MYSQL_URL set — database calls will fail.");
   }
-  if (!getEnv("APP_ID")) {
-    console.error("[CONFIG] APP_ID is not set — OAuth login will fail.");
-  }
-  if (!getEnv("OWNER_UNION_ID")) {
-    console.error("[CONFIG] OWNER_UNION_ID is not set — no user will be auto-promoted to admin.");
+  if (!getEnv("OWNER_EMAIL")) {
+    console.error("[CONFIG] OWNER_EMAIL is not set — no user will be auto-promoted to admin.");
   }
 }
 
 export const env = {
-  appId: getEnv("APP_ID", "kitufu"),
-  appSecret: getEnv("APP_SECRET", "dev-secret"),
-  isProduction: process.env.NODE_ENV === "production",
+  appSecret,
+  isProduction,
+  isSecretSecure,
   databaseUrl: dbUrl,
-  kimiAuthUrl: getEnv("KIMI_AUTH_URL", "https://auth.kimi.ai"),
-  kimiOpenUrl: getEnv("KIMI_OPEN_URL", "https://platform.kimi.ai"),
+  ownerEmail: getEnv("OWNER_EMAIL", "").trim().toLowerCase(),
   ownerUnionId: getEnv("OWNER_UNION_ID", ""),
 };

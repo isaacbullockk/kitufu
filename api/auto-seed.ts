@@ -66,10 +66,31 @@ const CREATE_USERS = `CREATE TABLE IF NOT EXISTS users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   unionId VARCHAR(100) NOT NULL UNIQUE,
   name VARCHAR(255),
+  email VARCHAR(320),
+  passwordHash VARCHAR(255),
   avatar VARCHAR(500),
   role ENUM('user', 'host', 'admin') DEFAULT 'user',
-  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  lastSignInAt TIMESTAMP NULL DEFAULT NULL
 )`;
+
+// Add a column to an existing table if it is missing (idempotent migration).
+async function ensureColumn(table: string, column: string, ddl: string) {
+  const conn = await getRawConnection();
+  try {
+    const [rows] = await conn.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [table, column],
+    );
+    if ((rows as any[]).length === 0) {
+      await conn.execute(`ALTER TABLE \`${table}\` ADD COLUMN ${ddl}`);
+      console.log(`[DB] Added column: ${table}.${column}`);
+    }
+  } finally {
+    await conn.end();
+  }
+}
 
 const CREATE_HOST_PROFILES = `CREATE TABLE IF NOT EXISTS hostProfiles (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -149,6 +170,11 @@ export async function autoSeed() {
   await ensureTable("properties", CREATE_PROPERTIES);
   await ensureTable("bookings", CREATE_BOOKINGS);
   await ensureTable("users", CREATE_USERS);
+  // Idempotent column migrations for deployments created before local auth
+  await ensureColumn("users", "email", "email VARCHAR(320)");
+  await ensureColumn("users", "passwordHash", "passwordHash VARCHAR(255)");
+  await ensureColumn("users", "updatedAt", "updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+  await ensureColumn("users", "lastSignInAt", "lastSignInAt TIMESTAMP NULL DEFAULT NULL");
   await ensureTable("hostProfiles", CREATE_HOST_PROFILES);
   await ensureTable("availability", CREATE_AVAILABILITY);
   await ensureTable("groupEnquiries", CREATE_GROUP_ENQUIRIES);
