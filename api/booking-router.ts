@@ -5,7 +5,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { bookings, properties, availability, users } from "@db/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { runBookingPipeline, type BookingPayload } from "./booking-pipeline";
+import { enqueueBookingPipeline, type BookingPayload } from "./booking-pipeline";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ROOM_FACTORS: Record<string, number> = { multi_share: 0.5, twin: 0.78, private: 1.44 };
@@ -110,7 +110,8 @@ export const bookingRouter = createRouter({
         return { id, ref };
       });
 
-      // AI pipeline (Nemotron logistics -> Kimi comms -> Nemotron QA) runs async; webhook fires only after QA approval
+      // AI pipeline (Nemotron logistics -> Kimi comms -> Nemotron QA) runs via a bounded
+      // in-process queue — never blocks the booking response, never exhausts the event loop.
       void (async () => {
         try {
           const db2 = getDb();
@@ -140,7 +141,7 @@ export const bookingRouter = createRouter({
             totalPrice: serverTotal,
             currency: "UGX",
           };
-          await runBookingPipeline(payload);
+          enqueueBookingPipeline(payload);
         } catch (err) {
           console.error("[BOOKING] AI pipeline error for " + finalRef + ":", err);
         }
