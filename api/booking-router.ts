@@ -2,8 +2,9 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { bookings, properties, availability } from "@db/schema";
+import { bookings, properties, availability, users } from "@db/schema";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { runBookingPipeline, type BookingPayload } from "./booking-pipeline";
 
 function generateBookingRef(): string {
   const year = new Date().getFullYear();
@@ -70,6 +71,41 @@ export const bookingRouter = createRouter({
       });
       const bookingId = Number(result[0].insertId);
       await blockAvailability(input.propertyId, input.checkIn, input.checkOut, bookingId);
+
+      // Route the booking through the multi-model AI pipeline:
+      //   Nemotron 3 Ultra (logistics) -> Kimi (communications) -> Nemotron QA gate.
+      // Runs async so the user gets an instant response; the webhook fires
+      // only after QA approval.
+      void (async () => {
+        try {
+          const db2 = getDb();
+          const guestRows = await db2.select().from(users).where(eq(users.id, input.userId)).limit(1);
+          const hostRows = await db2.select().from(users).where(eq(users.id, property[0].ownerId)).limit(1);
+          const payload: BookingPayload = {
+            bookingId,
+            bookingRef,
+            propertyId: input.propertyId,
+            propertyTitle: property[0].title,
+            propertyLocation: property[0].location,
+            distanceToStadium: property[0].distanceToStadium || "",
+            guestName: guestRows[0]?.name || "Guest",
+            guestEmail: guestRows[0]?.email || "",
+            hostName: hostRows[0]?.name || "Host",
+            checkIn: input.checkIn,
+            checkOut: input.checkOut,
+            adults: input.adults,
+            children: input.children,
+            roomType: input.roomType,
+            addShuttle: input.addShuttle,
+            seasonPass: input.seasonPass,
+            totalPrice: input.totalPrice,
+            currency: "UGX",
+          };
+          await runBookingPipeline(payload);
+        } catch (err) {
+          console.error("[BOOKING] AI pipeline error for " + bookingRef + ":", err);
+        }
+      })();
 
       return { id: bookingId, bookingRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: input.totalPrice, status: "pending", message: "Booking created successfully. Payment required to confirm." };
     }),
