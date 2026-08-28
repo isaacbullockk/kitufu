@@ -11,7 +11,7 @@ export const env = {
   appSecret: getEnv("APP_SECRET", "dev-secret"),
   isProduction: process.env.NODE_ENV === "production",
   databaseUrl: dbUrl,
-  kimiAuthUrl: getEnv("KIMI_AUTH_URL", "https://auth.kimi.com"),
-  kimiOpenUrl: getEnv("KIMI_OPEN_URL", "https://platform.kimi.com"),
+  kimiAuthUrl: getEnv("KIMI_AUTH_URL", "https://auth.kimi.ai"),
+  kimiOpenUrl: getEnv("KIMI_OPEN_URL", "https://platform.kimi.ai"),
   ownerUnionId: getEnv("OWNER_UNION_ID", ""),
 };
