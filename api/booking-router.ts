@@ -37,7 +37,7 @@ export const bookingRouter = createRouter({
   create: publicQuery
     .input(z.object({
       propertyId: z.number().positive("Property ID must be positive"),
-      userId: z.number().positive("User ID must be positive"),
+      userId: z.number().positive("User ID must be positive").optional(),
       checkIn: z.string().min(1, "Check-in date is required"),
       checkOut: z.string().min(1, "Check-out date is required"),
       adults: z.number().min(1, "At least 1 adult required").default(1),
@@ -46,8 +46,11 @@ export const bookingRouter = createRouter({
       totalPrice: z.number().positive("Total price must be positive"),
       addShuttle: z.number().min(0).default(0),
       seasonPass: z.number().min(0).default(0),
+      contactName: z.string().max(255).optional(),
+      contactPhone: z.string().max(50).optional(),
+      contactEmail: z.string().email().max(320).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const checkInDate = new Date(input.checkIn);
       const checkOutDate = new Date(input.checkOut);
       const today = new Date();
@@ -60,13 +63,27 @@ export const bookingRouter = createRouter({
       const property = await db.select().from(properties).where(eq(properties.id, input.propertyId)).limit(1);
       if (property.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Property " + input.propertyId + " not found" });
 
+      // Server-authoritative user identity: logged-in user wins, guest checkout falls back to client userId
+      const effectiveUserId = ctx.user?.id ?? input.userId;
+      if (!effectiveUserId) throw new TRPCError({ code: "UNAUTHORIZED", message: "You must be logged in to make a booking" });
+
+      // Server-side price recomputation — never trust client-supplied totalPrice.
+      // Mirrors the Booking.tsx formula: perNight(rate*roomFactor) * nights + flat service fee + 18% VAT.
+      const ROOM_FACTORS: Record<string, number> = { multi_share: 0.5, twin: 0.78, private: 1.44 };
+      const SERVICE_FEE_UGX = 28;
+      const TAX_RATE = 0.18;
+      const nightsMs = checkOutDate.getTime() - checkInDate.getTime();
+      const nights = Math.max(1, Math.round(nightsMs / (1000 * 60 * 60 * 24)));
+      const perNight = Math.round(property[0].pricePerNight * (ROOM_FACTORS[input.roomType] ?? 1));
+      const serverTotal = perNight * nights + SERVICE_FEE_UGX + Math.round(perNight * nights * TAX_RATE);
+
       const conflicts = await checkAvailabilityConflict(input.propertyId, input.checkIn, input.checkOut);
       if (conflicts > 0) throw new TRPCError({ code: "CONFLICT", message: "This property is not available for the selected dates (" + conflicts + " conflicting booking(s))" });
 
       const bookingRef = generateBookingRef();
       const result = await db.insert(bookings).values({
-        propertyId: input.propertyId, userId: input.userId, checkIn: input.checkIn, checkOut: input.checkOut,
-        adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: input.totalPrice,
+        propertyId: input.propertyId, userId: effectiveUserId, checkIn: input.checkIn, checkOut: input.checkOut,
+        adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: serverTotal,
         status: "pending", addShuttle: input.addShuttle, seasonPass: input.seasonPass, bookingRef,
       });
       const bookingId = Number(result[0].insertId);
@@ -88,8 +105,8 @@ export const bookingRouter = createRouter({
             propertyTitle: property[0].title,
             propertyLocation: property[0].location,
             distanceToStadium: property[0].distanceToStadium || "",
-            guestName: guestRows[0]?.name || "Guest",
-            guestEmail: guestRows[0]?.email || "",
+            guestName: input.contactName || guestRows[0]?.name || "Guest",
+            guestEmail: input.contactEmail || guestRows[0]?.email || "",
             hostName: hostRows[0]?.name || "Host",
             checkIn: input.checkIn,
             checkOut: input.checkOut,
@@ -98,7 +115,7 @@ export const bookingRouter = createRouter({
             roomType: input.roomType,
             addShuttle: input.addShuttle,
             seasonPass: input.seasonPass,
-            totalPrice: input.totalPrice,
+            totalPrice: serverTotal,
             currency: "UGX",
           };
           await runBookingPipeline(payload);
@@ -107,7 +124,7 @@ export const bookingRouter = createRouter({
         }
       })();
 
-      return { id: bookingId, bookingRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: input.totalPrice, status: "pending", message: "Booking created successfully. Payment required to confirm." };
+      return { id: bookingId, bookingRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: serverTotal, status: "pending", message: "Booking created successfully. Payment required to confirm." };
     }),
 
   listByUser: publicQuery.input(z.object({ userId: z.number() })).query(async ({ input }) => {
