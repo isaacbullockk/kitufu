@@ -464,6 +464,13 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const { user, isLoading } = useAuth()
 
+  // Hooks must run unconditionally — redirect happens here, never mid-render
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate(LOGIN_PATH)
+    }
+  }, [isLoading, user, navigate])
+
   // Loading state while checking auth
   if (isLoading) {
     return (
@@ -473,12 +480,23 @@ export default function AdminDashboard() {
     )
   }
 
-  // Redirect if not authenticated
+  // Not logged in: show a proper screen while the redirect fires
   if (!user) {
-    useEffect(() => {
-      navigate(LOGIN_PATH)
-    }, [navigate])
-    return null
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-warm-sand">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
+          <ShieldAlert className="h-16 w-16 text-sunset" />
+          <h1 className="text-2xl font-bold text-charcoal">Login Required</h1>
+          <p className="text-slate">Redirecting you to login...</p>
+          <button
+            onClick={() => navigate(LOGIN_PATH)}
+            className="rounded-lg bg-deep-forest px-6 py-2.5 text-sm font-medium text-white hover:bg-deep-forest/90 transition-colors"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Access denied if not admin
