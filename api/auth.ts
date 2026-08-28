@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { setCookie } from "hono/cookie";
 import * as cookie from "cookie";
+import type { User } from "@db/schema";
 import { Session } from "@contracts/constants";
 import { Errors } from "@contracts/errors";
 import { getSessionCookieOptions } from "./lib/cookies";
@@ -10,9 +11,13 @@ import { env } from "./lib/env";
 import { signSessionToken, verifySessionToken } from "./session";
 import { findUserByUnionId, upsertUser, touchLastSignIn, promoteToAdmin } from "./queries/users";
 
+// User object as exposed to request context and API responses — never carries
+// the password hash out of the database layer.
+export type SafeUser = Omit<User, "passwordHash">;
+
 // ── Request authentication (session cookie → user) ──────────────────────────
 
-export async function authenticateRequest(headers: Headers) {
+export async function authenticateRequest(headers: Headers): Promise<SafeUser> {
   const cookies = cookie.parse(headers.get("cookie") || "");
   const token = cookies[Session.cookieName];
   if (!token) {
@@ -28,7 +33,8 @@ export async function authenticateRequest(headers: Headers) {
   if (!user) {
     throw Errors.forbidden("User not found. Please re-login.");
   }
-  return user;
+  const { passwordHash: _passwordHash, ...safeUser } = user;
+  return safeUser;
 }
 
 // ── Local email + password auth ──────────────────────────────────────────────
