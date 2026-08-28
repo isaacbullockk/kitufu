@@ -1,9 +1,14 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-function getOAuthUrl() {
+function getOAuthUrl(): string | null {
   const kimiAuthUrl = import.meta.env.VITE_KIMI_AUTH_URL;
   const appID = import.meta.env.VITE_APP_ID;
+  if (!kimiAuthUrl || !appID) {
+    console.error("[LOGIN] Missing VITE_KIMI_AUTH_URL or VITE_APP_ID at build time");
+    return null;
+  }
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
   const state = btoa(redirectUri);
 
@@ -18,6 +23,7 @@ function getOAuthUrl() {
 }
 
 export default function Login() {
+  const [configError, setConfigError] = useState(false);
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Card className="w-full max-w-sm">
@@ -29,11 +35,21 @@ export default function Login() {
             className="w-full"
             size="lg"
             onClick={() => {
-              window.location.href = getOAuthUrl();
+              const url = getOAuthUrl();
+              if (url) {
+                window.location.href = url;
+              } else {
+                setConfigError(true);
+              }
             }}
           >
             Sign in with Kimi
           </Button>
+          {configError && (
+            <p className="mt-3 text-center text-sm text-red-600">
+              Login is temporarily unavailable — configuration error. Please try again later.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
