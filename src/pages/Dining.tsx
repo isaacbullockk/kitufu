@@ -454,7 +454,7 @@ function StreetFoodGuide() {
             {STREET_FOOD.map((item, i) => (
               <motion.div
                 key={item.name} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
-                className="min-w-[260px] sm:min-w-0 sm:flex-1 snap-start"
+                className="w-[82vw] max-w-[300px] sm:w-auto sm:max-w-none sm:min-w-0 sm:flex-1 snap-start shrink-0"
               >
                 <div className="bg-white border border-light-grey rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card h-full text-center">
                   <div className="w-16 h-16 mx-auto rounded-xl bg-sunset/10 flex items-center justify-center mb-4">

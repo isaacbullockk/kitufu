@@ -474,7 +474,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
         initial={{ opacity: 0, x: 30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
-        className="bg-white border border-light-grey rounded-xl p-6 shadow-card sticky top-[120px]"
+        className="bg-white border border-light-grey rounded-xl p-4 sm:p-6 shadow-card sticky top-[120px]"
       >
         {/* Price Header */}
         <div className="flex items-baseline justify-between mb-4">
@@ -646,7 +646,7 @@ function NearbyRestaurants() {
                 key={restaurant.id}
                 custom={i}
                 variants={staggerItem}
-                className="min-w-[200px] sm:min-w-0 snap-start"
+                className="w-[82vw] max-w-[260px] sm:w-auto sm:max-w-none sm:min-w-0 snap-start shrink-0"
               >
                 <div className="bg-white border border-light-grey rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card h-full">
                   <div className={`aspect-[16/9] bg-gradient-to-br ${restaurant.gradient} flex items-center justify-center`}>
@@ -725,7 +725,7 @@ function NearbyAttractions({ attractions }: { attractions: typeof NEARBY_ATTRACT
                 key={attr.id}
                 custom={i}
                 variants={staggerItem}
-                className="min-w-[260px] sm:min-w-0 snap-start"
+                className="w-[82vw] max-w-[280px] sm:w-auto sm:max-w-none sm:min-w-0 snap-start shrink-0"
               >
                 <div className="bg-warm-sand border border-light-grey rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card h-full">
                   <div className={`aspect-[16/9] bg-gradient-to-br ${CATEGORY_GRADIENTS[attr.category]} flex items-center justify-center`}>
