@@ -79,7 +79,7 @@ export default function Locations() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.6, delay: i * 0.2 + 0.3 }}
-                className="font-display font-bold text-4xl lg:text-[2.5rem] text-white mb-2"
+                className="font-display font-bold text-3xl sm:text-4xl lg:text-[2.5rem] text-white mb-2"
               >
                 {loc.city}
               </motion.h3>

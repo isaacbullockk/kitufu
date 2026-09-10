@@ -103,10 +103,10 @@ function UpcomingEventsSection() {
                 className="w-[82vw] max-w-[300px] sm:w-auto sm:max-w-none sm:min-w-0 sm:flex-1 snap-start shrink-0"
               >
                 <div className="bg-warm-sand border border-light-grey rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card h-full flex flex-col">
-                  <div className={`h-24 bg-gradient-to-r ${event.gradient} flex items-center justify-center`}>
-                    <Calendar size={36} className="text-white/40" />
+                  <div className={`h-16 sm:h-24 bg-gradient-to-r ${event.gradient} flex items-center justify-center`}>
+                    <Calendar size={32} className="text-white/40" />
                   </div>
-                  <div className="p-5 flex flex-col flex-1">
+                  <div className="p-4 sm:p-5 flex flex-col flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${EVENT_TYPE_COLORS[event.type] || 'bg-slate text-white'}`}>
                         {event.type}

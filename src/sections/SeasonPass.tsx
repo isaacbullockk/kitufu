@@ -50,7 +50,7 @@ export default function SeasonPass() {
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:w-auto bg-white/95 backdrop-blur-md rounded-xl p-4 sm:p-5 shadow-card"
+              className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:w-auto bg-white/95 backdrop-blur-md rounded-lg sm:rounded-xl p-3 sm:p-5 shadow-card"
             >
               <span className="sunset-gradient text-white text-[10px] font-body font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md inline-block mb-2">
                 SEASON PASS
