@@ -96,11 +96,11 @@ function UpcomingEventsSection() {
             </p>
           </motion.div>
 
-          <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
+          <div className="flex gap-4 sm:gap-5 overflow-x-auto scrollbar-hide pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
             {UPCOMING_EVENTS.map((event, i) => (
               <motion.div
                 key={event.title} custom={i} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
-                className="min-w-[280px] sm:min-w-0 sm:flex-1 snap-start"
+                className="w-[82vw] max-w-[300px] sm:w-auto sm:max-w-none sm:min-w-0 sm:flex-1 snap-start shrink-0"
               >
                 <div className="bg-warm-sand border border-light-grey rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-card h-full flex flex-col">
                   <div className={`h-24 bg-gradient-to-r ${event.gradient} flex items-center justify-center`}>

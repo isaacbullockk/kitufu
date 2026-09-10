@@ -62,7 +62,7 @@ export default function FeaturedResidences() {
               onClick={() => navigate('/property/' + property.id)}
               className="bg-midnight rounded-xl overflow-hidden cursor-pointer group hover:shadow-2xl hover:shadow-sunset/10 transition-all duration-300"
             >
-              <div className="relative h-56 overflow-hidden">
+              <div className="relative h-48 sm:h-56 overflow-hidden">
                 <img src={property.image} alt={property.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute top-3 left-3 flex gap-2">
                   {property.badges.map((badge: any, j: number) => (

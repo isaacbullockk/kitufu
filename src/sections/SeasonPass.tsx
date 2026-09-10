@@ -37,7 +37,7 @@ export default function SeasonPass() {
             transition={{ duration: 0.6 }}
             className="relative"
           >
-            <div className="relative rounded-2xl overflow-hidden">
+            <div className="relative rounded-xl sm:rounded-2xl overflow-hidden">
               <img
                 src="/property-kampala-2.jpg"
                 alt="Premium room interior"

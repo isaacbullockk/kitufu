@@ -41,7 +41,7 @@ export default function Locations() {
 
   return (
     <section ref={ref} className="relative overflow-hidden">
-      <div className="flex flex-col lg:flex-row min-h-[400px] lg:min-h-[500px]">
+      <div className="flex flex-col lg:flex-row min-h-[280px] sm:min-h-[400px] lg:min-h-[500px]">
         {locations.map((loc, i) => (
           <motion.div
             key={loc.city}

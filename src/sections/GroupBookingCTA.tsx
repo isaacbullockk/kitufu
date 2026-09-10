@@ -101,7 +101,7 @@ export default function GroupBookingCTA() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="relative order-first lg:order-last"
           >
-            <div className="relative rounded-2xl overflow-hidden">
+            <div className="relative rounded-xl sm:rounded-2xl overflow-hidden">
               <img
                 src="/supporters-club.jpg"
                 alt="Supporters club celebrating"
