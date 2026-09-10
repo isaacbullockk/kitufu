@@ -138,7 +138,7 @@ export default function Testimonials() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: direction > 0 ? -60 : 60 }}
                   transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }}
-                  className={`bg-white rounded-xl p-8 shadow-card border-t-4 border-sunset ${
+                  className={`bg-white rounded-xl p-5 sm:p-8 shadow-card border-t-4 border-sunset ${
                     arrIdx === 1 ? 'md:scale-[1.02]' : ''
                   } transition-transform duration-300`}
                 >
