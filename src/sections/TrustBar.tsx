@@ -67,11 +67,11 @@ export default function TrustBar() {
           <p className="text-center text-xs text-slate font-body uppercase tracking-[0.1em] mb-4">
             Official Partners
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-12 opacity-60 hover:opacity-100 transition-opacity duration-300">
+          <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 lg:gap-x-12 opacity-60 hover:opacity-100 transition-opacity duration-300">
             {['UTB', 'CAF', 'UHOA', 'Kitufu'].map((partner) => (
               <div
                 key={partner}
-                className="text-deep-forest font-display font-bold text-sm lg:text-base tracking-wide"
+                className="text-deep-forest font-display font-bold text-xs sm:text-sm lg:text-base tracking-wide text-center max-w-[140px] leading-tight"
               >
                 {partner === 'UTB' && 'Uganda Tourism Board'}
                 {partner === 'CAF' && 'CAF Official Partner'}

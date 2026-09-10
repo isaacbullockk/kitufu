@@ -32,12 +32,12 @@ function CountdownTimer() {
   ]
 
   return (
-    <div className="flex items-center gap-3 sm:gap-4">
+    <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
       <span className="text-white/70 text-sm font-body mr-1 hidden sm:inline">Kickoff in</span>
       {boxes.map((box) => (
         <div
           key={box.label}
-          className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 text-center min-w-[56px] sm:min-w-[68px]"
+          className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 text-center min-w-[52px] sm:min-w-[68px]"
         >
           <div className="font-display font-bold text-xl sm:text-[28px] text-white leading-none">
             {String(box.value).padStart(2, '0')}
@@ -184,34 +184,36 @@ function SearchBar() {
 /* ─── Hero Section ─── */
 export default function Hero() {
   return (
-    <section className="relative min-h-[100dvh] flex items-center overflow-hidden -mt-16">
-      {/* Background Image */}
-      <motion.div
-        initial={{ scale: 1.1 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 8, ease: 'easeOut' }}
-        className="absolute inset-0 z-0"
-      >
-        <img
-          src="/hero-bg.jpg"
-          alt="Kampala at golden hour"
-          className="w-full h-full object-cover"
+    <section className="relative min-h-[100dvh] flex items-center -mt-16">
+      {/* Background wrapper — overflow-hidden ONLY here so the scaled image doesn't show edges */}
+      <div className="absolute inset-0 overflow-hidden">
+        <motion.div
+          initial={{ scale: 1.1 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 8, ease: 'easeOut' }}
+          className="absolute inset-0 z-0"
+        >
+          <img
+            src="/hero-bg.jpg"
+            alt="Kampala at golden hour"
+            className="w-full h-full object-cover"
+          />
+        </motion.div>
+
+        {/* Gradient Overlay */}
+        <div className="hero-gradient-overlay absolute inset-0 z-[1]" />
+
+        {/* Animated grain overlay */}
+        <div
+          className="absolute inset-0 z-[2] opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          }}
         />
-      </motion.div>
+      </div>
 
-      {/* Gradient Overlay */}
-      <div className="hero-gradient-overlay absolute inset-0 z-[1]" />
-
-      {/* Animated grain overlay */}
-      <div
-        className="absolute inset-0 z-[2] opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      {/* Content */}
-      <div className="container-kitufu relative z-10 pt-24 pb-16">
+      {/* Content — NOT clipped by overflow-hidden, so dropdowns can extend freely */}
+      <div className="container-kitufu relative z-10 pt-20 sm:pt-24 pb-12 sm:pb-16">
         <div className="max-w-[700px]">
           {/* Tagline */}
           <motion.div

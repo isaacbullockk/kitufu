@@ -99,7 +99,7 @@ export default function Locations() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={inView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.6, delay: i * 0.2 + 0.5 }}
-                className="flex gap-4 mb-6"
+                className="flex flex-wrap gap-4 mb-6"
               >
                 {loc.stats.map((stat) => (
                   <div key={stat.label} className="flex items-center gap-1.5 text-white/80">

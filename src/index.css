@@ -157,11 +157,11 @@
   }
 
   .section-padding {
-    @apply py-16 md:py-20 lg:py-24;
+    @apply py-12 sm:py-16 md:py-20 lg:py-24;
   }
 
   .container-kitufu {
-    @apply max-w-[1280px] mx-auto px-6 lg:px-12;
+    @apply max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-12;
   }
 }
 
