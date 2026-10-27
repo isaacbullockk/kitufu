@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/providers/trpc";
+import { Eye, EyeOff } from "lucide-react";
 
 // Email + password auth — kitufu.com is self-hosted, so accounts live in our
 // own database ("Sign in with Kimi" is only available on Kimi-hosted sites).
@@ -13,6 +14,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -61,6 +63,7 @@ export default function Login() {
                   id="name"
                   name="name"
                   autoComplete="name"
+                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
@@ -82,17 +85,30 @@ export default function Login() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
+                  className="pr-12"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center justify-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-r-md"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  aria-controls="password"
+                >
+                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
             </div>
             {error && (
               <p className="text-sm text-red-600" role="alert">
@@ -117,6 +133,7 @@ export default function Login() {
                   onClick={() => {
                     setMode("register");
                     setError(null);
+                    setShowPassword(false);
                   }}
                 >
                   Create an account
@@ -131,6 +148,7 @@ export default function Login() {
                   onClick={() => {
                     setMode("login");
                     setError(null);
+                    setShowPassword(false);
                   }}
                 >
                   Sign in
