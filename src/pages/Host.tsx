@@ -219,6 +219,7 @@ function MiniBarChart({ data, color = '#FF6B35' }: { data: number[]; color?: str
 /*  Main Earnings Bar Chart (div-based)                                */
 /* ------------------------------------------------------------------ */
 function EarningsBarChart() {
+  const { formatPrice } = useCurrency()
   const data = [
     { month: 'June', value: 3288 },
     { month: 'July', value: 4932 },
@@ -426,7 +427,6 @@ function ChecklistItem({
 /*  Section 1: Host Header                                             */
 /* ------------------------------------------------------------------ */
 function HostHeader() {
-  const { formatPrice } = useCurrency()
   const stats = [
     { icon: DollarSign, value: 12450, label: 'Total Earnings', change: '+23% vs. last month' },
     { icon: TrendingUp, value: 3200, label: 'This Month', change: '8 bookings' },
@@ -499,6 +499,7 @@ function HostHeader() {
 /*  Tab 1: My Properties                                               */
 /* ------------------------------------------------------------------ */
 function MyProperties() {
+  const { formatPrice } = useCurrency()
   return (
     <div>
       <div className="mb-6">
@@ -704,6 +705,7 @@ function BookingsCalendarTab() {
 /*  Tab 3: Earnings                                                    */
 /* ------------------------------------------------------------------ */
 function EarningsTab() {
+  const { formatPrice } = useCurrency()
   const totals = {
     bookings: earningsData.reduce((a, e) => a + e.bookings, 0),
     nightlyRevenue: earningsData.reduce((a, e) => a + e.nightlyRevenue, 0),
@@ -1070,7 +1072,6 @@ function HostProfile() {
 /*  Main Host Dashboard Page                                           */
 /* ------------------------------------------------------------------ */
 export default function Host() {
-  const { formatPrice } = useCurrency()
   const [activeTab, setActiveTab] = useState('properties')
 
   return (
