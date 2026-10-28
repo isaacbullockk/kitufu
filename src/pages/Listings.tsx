@@ -42,6 +42,7 @@ export default function Listings() {
   const [quickBookProperty, setQuickBookProperty] = useState<{
     id: number
     title: string
+    capacity: number
     pricePerNight: number
     image: string
   } | null>(null)
@@ -316,7 +317,7 @@ export default function Listings() {
                         <p className="text-sm text-sage font-bold">{formatPrice(p.totalCost)} <span className="text-gray-500 text-xs font-normal">for {nights} nights</span></p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setQuickBookProperty({ id: p.id, title: p.title, pricePerNight: p.pricePerNight, image: p.firstImage })}
+                        <button onClick={() => setQuickBookProperty({ id: p.id, title: p.title, capacity: p.capacity, pricePerNight: p.pricePerNight, image: p.firstImage })}
                           className="bg-sunset hover:bg-sunset/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
                           Book Now
                         </button>
@@ -333,9 +334,11 @@ export default function Listings() {
       {quickBookProperty && (
         <QuickBookModal
           propertyId={quickBookProperty.id}
+          capacity={quickBookProperty.capacity}
           title={quickBookProperty.title}
-          pricePerNight={quickBookProperty.pricePerNight}
+          price={quickBookProperty.pricePerNight}
           image={quickBookProperty.image}
+          isOpen
           onClose={() => setQuickBookProperty(null)}
         />
       )}

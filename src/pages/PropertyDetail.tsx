@@ -597,6 +597,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
 
       <QuickBookModal
         propertyId={property.id}
+        capacity={property.capacity}
         price={property.pricePerNight}
         title={property.title}
         image={firstImage}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,14 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const requestedReturnTo = searchParams.get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith("/") &&
+    !requestedReturnTo.startsWith("//") &&
+    !requestedReturnTo.includes("\\")
+    ? requestedReturnTo
+    : "/";
   const utils = trpc.useUtils();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,7 +46,7 @@ export default function Login() {
         return;
       }
       await utils.auth.me.invalidate();
-      navigate("/");
+      navigate(returnTo, { state: location.state });
     } catch {
       setError("Network error — please check your connection and try again.");
     } finally {

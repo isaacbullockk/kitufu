@@ -2,17 +2,23 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Calendar, Users, Bed, Lock, Minus, Plus, X, MapPin, Star,
-  CreditCard, Check, Phone, Mail, User
+  Calendar, Users, Bed, Lock, Minus, Plus, X,
+  Check, Phone, Mail, User
 } from 'lucide-react'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
+import {
+  calculateBookingQuote,
+  getStayNights,
+  MAX_STAY_NIGHTS,
+} from '@contracts/booking-pricing'
 
 type RoomType = 'multi_share' | 'twin' | 'private'
 
 interface QuickBookModalProps {
   propertyId: number
+  capacity: number
   price: number
   title: string
   image: string
@@ -20,30 +26,23 @@ interface QuickBookModalProps {
   onClose: () => void
 }
 
-const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string; priceFactor: number }[] = [
-  { id: 'multi_share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room', priceFactor: 0.5 },
-  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room', priceFactor: 0.78 },
-  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room', priceFactor: 1.44 },
+const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string }[] = [
+  { id: 'multi_share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room' },
+  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room' },
+  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room' },
 ]
 
-function nightsBetween(a: string, b: string): number {
-  if (!a || !b) return 0
-  const ms = new Date(b).getTime() - new Date(a).getTime()
-  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)))
-}
-
-export default function QuickBookModal({ propertyId, price, title, image, isOpen, onClose }: QuickBookModalProps) {
+export default function QuickBookModal({ propertyId, capacity, price, title, image, isOpen, onClose }: QuickBookModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
-  const [adults, setAdults] = useState(2)
+  const [adults, setAdults] = useState(1)
   const [children, setChildren] = useState(0)
   const [roomType, setRoomType] = useState<RoomType>('twin')
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile'>('card')
   const [termsAccepted, setTermsAccepted] = useState(false)
 
   const createBooking = trpc.booking.create.useMutation({
@@ -52,30 +51,45 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
     },
   })
 
-  const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut])
-  const roomInfo = ROOM_TYPES.find(r => r.id === roomType) || ROOM_TYPES[1]
-  const perNight = Math.round(price * roomInfo.priceFactor)
-  const subtotal = perNight * nights
-  const serviceFee = nights > 0 ? 28 : 0
-  const taxes = Math.round(subtotal * 0.18)
-  const total = subtotal + serviceFee + taxes
+  const nights = useMemo(() => getStayNights(checkIn, checkOut), [checkIn, checkOut])
+  const quote = nights > 0 && nights <= MAX_STAY_NIGHTS
+    ? calculateBookingQuote(price, nights, roomType)
+    : null
+  const today = new Date().toISOString().slice(0, 10)
+  const guestLimit = Math.min(capacity, 20)
 
   const handleSubmit = () => {
-    if (!checkIn || !checkOut || !termsAccepted) return
+    if (!checkIn || !checkOut || !termsAccepted || !quote || adults + children > capacity) return
+    if (!user) {
+      navigate('/login?returnTo=' + encodeURIComponent('/booking/' + propertyId), {
+        state: {
+          bookingForm: {
+            checkIn,
+            checkOut,
+            adults,
+            children,
+            roomType,
+            contactName,
+            contactPhone,
+            contactEmail,
+            termsAccepted,
+          },
+        },
+      })
+      return
+    }
     createBooking.mutate({
       propertyId,
-      userId: user?.id,
       checkIn,
       checkOut,
       adults,
       children,
       roomType,
-      totalPrice: total,
       addShuttle: 0,
       seasonPass: 0,
       contactName,
       contactPhone,
-      contactEmail,
+      contactEmail: contactEmail.trim() || undefined,
     })
   }
 
@@ -130,8 +144,13 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                     </div>
                     <input
                       type="date"
+                      min={today}
                       value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
+                      onChange={(e) => {
+                        const nextCheckIn = e.target.value
+                        setCheckIn(nextCheckIn)
+                        if (checkOut && nextCheckIn >= checkOut) setCheckOut('')
+                      }}
                       className="w-full border border-light-grey rounded-lg px-3 py-2.5 text-sm text-deep-forest focus:outline-none focus:border-sunset focus:ring-2 focus:ring-sunset/20 transition-all"
                     />
                   </div>
@@ -141,6 +160,7 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                     </div>
                     <input
                       type="date"
+                      min={checkIn || today}
                       value={checkOut}
                       onChange={(e) => setCheckOut(e.target.value)}
                       className="w-full border border-light-grey rounded-lg px-3 py-2.5 text-sm text-deep-forest focus:outline-none focus:border-sunset focus:ring-2 focus:ring-sunset/20 transition-all"
@@ -149,6 +169,12 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                 </div>
                 {nights > 0 && (
                   <p className="text-xs text-sunset font-medium mt-1.5">{nights} nights selected</p>
+                )}
+                {checkIn && checkOut && nights === 0 && (
+                  <p role="alert" className="text-xs text-red-600 mt-1.5">Check-out must be a valid date after check-in.</p>
+                )}
+                {nights > MAX_STAY_NIGHTS && (
+                  <p role="alert" className="text-xs text-red-600 mt-1.5">Stays are limited to {MAX_STAY_NIGHTS} nights.</p>
                 )}
               </div>
 
@@ -171,9 +197,9 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                       </button>
                       <span className="font-semibold text-deep-forest w-6 text-center">{adults}</span>
                       <button
-                        onClick={() => setAdults(Math.min(20, adults + 1))}
+                        onClick={() => setAdults(Math.min(guestLimit, adults + 1))}
                         className="w-8 h-8 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30"
-                        disabled={adults >= 20}
+                        disabled={adults + children >= guestLimit}
                       >
                         <Plus size={14} />
                       </button>
@@ -194,9 +220,9 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                       </button>
                       <span className="font-semibold text-deep-forest w-6 text-center">{children}</span>
                       <button
-                        onClick={() => setChildren(Math.min(10, children + 1))}
+                        onClick={() => setChildren(Math.max(0, Math.min(10, guestLimit - adults, children + 1)))}
                         className="w-8 h-8 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30"
-                        disabled={children >= 10}
+                        disabled={children >= 10 || adults + children >= guestLimit}
                       >
                         <Plus size={14} />
                       </button>
@@ -273,53 +299,24 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
                 </div>
               </div>
 
-              {/* Payment Method */}
-              <div>
-                <label className="text-xs text-slate font-medium uppercase tracking-wide mb-2 block">Payment Method</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                      paymentMethod === 'card'
-                        ? 'border-sunset bg-sunset/5 text-deep-forest'
-                        : 'border-light-grey text-slate hover:border-sunset/50'
-                    }`}
-                  >
-                    <CreditCard size={16} />
-                    Card
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('mobile')}
-                    className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                      paymentMethod === 'mobile'
-                        ? 'border-sunset bg-sunset/5 text-deep-forest'
-                        : 'border-light-grey text-slate hover:border-sunset/50'
-                    }`}
-                  >
-                    <Phone size={16} />
-                    Mobile Money
-                  </button>
-                </div>
-              </div>
-
               {/* Price Preview */}
-              {nights > 0 && (
+              {nights > 0 && nights <= MAX_STAY_NIGHTS && quote && (
                 <div className="bg-warm-sand rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate">USh {perNight.toLocaleString()} × {nights} nights</span>
-                    <span className="text-deep-forest font-medium">USh {subtotal.toLocaleString()}</span>
+                    <span className="text-slate">USh {quote.perNight.toLocaleString()} × {nights} nights</span>
+                    <span className="text-deep-forest font-medium">USh {quote.subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate">Service fee</span>
-                    <span className="text-deep-forest font-medium">USh {serviceFee.toLocaleString()}</span>
+                    <span className="text-deep-forest font-medium">USh {quote.serviceFee.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate">Taxes (18%)</span>
-                    <span className="text-deep-forest font-medium">USh {taxes.toLocaleString()}</span>
+                    <span className="text-deep-forest font-medium">USh {quote.tax.toLocaleString()}</span>
                   </div>
                   <div className="border-t border-light-grey pt-2 flex justify-between items-center">
                     <span className="font-display font-bold text-deep-forest">Total</span>
-                    <span className="font-display text-xl font-bold text-deep-forest">USh {total.toLocaleString()}</span>
+                    <span className="font-display text-xl font-bold text-deep-forest">USh {(quote?.total ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -340,11 +337,14 @@ export default function QuickBookModal({ propertyId, price, title, image, isOpen
               {/* CTA */}
               <Button
                 className="w-full btn-sunset-gradient py-4 text-base"
-                disabled={!checkIn || !checkOut || !termsAccepted || createBooking.isPending || !contactName || !contactPhone}
+                disabled={!checkIn || !checkOut || !termsAccepted || createBooking.isPending || !contactName || !contactPhone || !quote || adults + children > capacity}
                 onClick={handleSubmit}
               >
                 {createBooking.isPending ? 'Processing...' : 'Reserve Now'}
               </Button>
+
+              {createBooking.error && <p role="alert" className="text-sm text-red-600 text-center">{createBooking.error.message}</p>}
+              {quote === null && nights > 0 && nights <= MAX_STAY_NIGHTS && <p role="alert" className="text-sm text-red-600 text-center">We can&apos;t calculate this booking total. Please contact support.</p>}
 
               <p className="text-xs text-slate text-center">You won&apos;t be charged yet</p>
             </div>

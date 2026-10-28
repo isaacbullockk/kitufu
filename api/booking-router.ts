@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { randomInt } from "crypto";
-import { createRouter, publicQuery } from "./middleware";
+import { adminQuery, authedQuery, createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { bookings, properties, availability, users } from "@db/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, or } from "drizzle-orm";
 import { enqueueBookingPipeline, type BookingPayload } from "./booking-pipeline";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const ROOM_FACTORS: Record<string, number> = { multi_share: 0.5, twin: 0.78, private: 1.44 };
-const SERVICE_FEE_UGX = 28;
-const TAX_RATE = 0.18;
+import {
+  calculateBookingQuote,
+  getStayNights,
+  MAX_STAY_NIGHTS,
+} from "@contracts/booking-pricing";
 
 function generateBookingRef(): string {
   const year = new Date().getFullYear();
@@ -23,50 +23,68 @@ function todayUTC(): string {
 }
 
 export const bookingRouter = createRouter({
-  create: publicQuery
+  create: authedQuery
     .input(z.object({
-      propertyId: z.number().positive("Property ID must be positive"),
-      userId: z.number().positive("User ID must be positive").optional(),
-      checkIn: z.string().regex(DATE_RE, "checkIn must be YYYY-MM-DD"),
-      checkOut: z.string().regex(DATE_RE, "checkOut must be YYYY-MM-DD"),
-      adults: z.number().min(1, "At least 1 adult required").default(1),
-      children: z.number().min(0).default(0),
+      propertyId: z.number().int().positive("Property ID must be positive"),
+      checkIn: z.string(),
+      checkOut: z.string(),
+      adults: z.number().int().min(1, "At least 1 adult required").default(1),
+      children: z.number().int().min(0).default(0),
       roomType: z.enum(["multi_share", "twin", "private"]).default("private"),
-      totalPrice: z.number().positive("Total price must be positive"),
-      addShuttle: z.number().min(0).default(0),
-      seasonPass: z.number().min(0).default(0),
+      addShuttle: z.number().int().min(0).max(1).default(0),
+      seasonPass: z.number().int().min(0).max(1).default(0),
       contactName: z.string().max(255).optional(),
       contactPhone: z.string().max(50).optional(),
       contactEmail: z.string().email().max(320).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       // ISO date strings compare lexicographically — no timezone ambiguity
+      const nights = getStayNights(input.checkIn, input.checkOut);
+      if (nights === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter valid check-in and check-out dates" });
+      }
       if (input.checkIn < todayUTC()) throw new TRPCError({ code: "BAD_REQUEST", message: "Check-in date cannot be in the past" });
-      if (input.checkOut <= input.checkIn) throw new TRPCError({ code: "BAD_REQUEST", message: "Check-out date must be after check-in date" });
+      if (nights > MAX_STAY_NIGHTS) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Stays cannot exceed ${MAX_STAY_NIGHTS} nights` });
+      }
       if (input.adults + input.children > 20) throw new TRPCError({ code: "BAD_REQUEST", message: "Maximum 20 guests per booking" });
 
       const db = getDb();
-      const property = await db.select().from(properties).where(eq(properties.id, input.propertyId)).limit(1);
-      if (property.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found" });
-
-      // Server-authoritative user identity: logged-in user wins, guest checkout falls back to client userId
-      const effectiveUserId = ctx.user?.id ?? input.userId;
-      if (!effectiveUserId) throw new TRPCError({ code: "UNAUTHORIZED", message: "You must be logged in to make a booking" });
-
-      // Server-side price recomputation — never trust client-supplied totalPrice
-      const nightsMs = new Date(input.checkOut).getTime() - new Date(input.checkIn).getTime();
-      const nights = Math.max(1, Math.round(nightsMs / (1000 * 60 * 60 * 24)));
-      const perNight = Math.round(property[0].pricePerNight * (ROOM_FACTORS[input.roomType] ?? 1));
-      const serverTotal = perNight * nights + SERVICE_FEE_UGX + Math.round(perNight * nights * TAX_RATE);
+      // The authenticated session is the only source of booking ownership.
+      const effectiveUserId = ctx.user.id;
 
       const bookingRef = generateBookingRef();
 
-      // Atomic: conflict check + booking insert + availability block in ONE transaction
-      const { id: bookingId, ref: finalRef } = await db.transaction(async (tx) => {
+      // Lock the property row so concurrent reservations for the same property
+      // cannot both pass the overlap check before either inserts its booking.
+      const { id: bookingId, ref: finalRef, property, quote } = await db.transaction(async (tx) => {
+        const lockedProperties = await tx.select().from(properties)
+          .where(eq(properties.id, input.propertyId))
+          .limit(1)
+          .for("update");
+        if (lockedProperties.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Property not found" });
+        const lockedProperty = lockedProperties[0];
+        if (lockedProperty.status !== "approved") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Property is not available for booking" });
+        }
+        if (input.adults + input.children > lockedProperty.capacity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `This property can accommodate up to ${lockedProperty.capacity} guests`,
+          });
+        }
+
+        const quote = calculateBookingQuote(lockedProperty.pricePerNight, nights, input.roomType);
+        if (!quote) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The total for this stay is outside the supported booking range" });
+        }
         const conflicts = await tx.select({ count: sql<number>`count(*)` }).from(bookings).where(
           and(
             eq(bookings.propertyId, input.propertyId),
-            sql`${bookings.status} IN (\'pending\', \'confirmed\')`,
+            or(
+              eq(bookings.status, "confirmed"),
+              eq(bookings.status, "pending"),
+            ),
             sql`${bookings.checkIn} < ${input.checkOut}`,
             sql`${bookings.checkOut} > ${input.checkIn}`,
           )
@@ -81,7 +99,7 @@ export const bookingRouter = createRouter({
           try {
             result = await tx.insert(bookings).values({
               propertyId: input.propertyId, userId: effectiveUserId, checkIn: input.checkIn, checkOut: input.checkOut,
-              adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: serverTotal,
+              adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: quote.total,
               status: "pending", addShuttle: input.addShuttle, seasonPass: input.seasonPass, bookingRef: ref,
             });
             break;
@@ -97,7 +115,7 @@ export const bookingRouter = createRouter({
         const rows: { propertyId: number; date: string; isBooked: number; bookingId: number }[] = [];
         const start = new Date(input.checkIn);
         const end = new Date(input.checkOut);
-        for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
           rows.push({ propertyId: input.propertyId, date: d.toISOString().split("T")[0], isBooked: 1, bookingId: id });
         }
         if (rows.length > 0) {
@@ -107,7 +125,7 @@ export const bookingRouter = createRouter({
           );
           await tx.insert(availability).values(rows);
         }
-        return { id, ref };
+        return { id, ref, property: lockedProperty, quote };
       });
 
       // AI pipeline (Nemotron logistics -> Kimi comms -> Nemotron QA) runs via a bounded
@@ -116,14 +134,14 @@ export const bookingRouter = createRouter({
         try {
           const db2 = getDb();
           const guestRows = await db2.select().from(users).where(eq(users.id, effectiveUserId)).limit(1);
-          const hostRows = await db2.select().from(users).where(eq(users.id, property[0].ownerId)).limit(1);
+          const hostRows = await db2.select().from(users).where(eq(users.id, property.ownerId)).limit(1);
           const payload: BookingPayload = {
             bookingId,
             bookingRef: finalRef,
             propertyId: input.propertyId,
-            propertyTitle: property[0].title,
-            propertyLocation: property[0].location,
-            distanceToStadium: property[0].distanceToStadium || "",
+            propertyTitle: property.title,
+            propertyLocation: property.location,
+            distanceToStadium: property.distanceToStadium || "",
             guestName: input.contactName || guestRows[0]?.name || "Guest",
             guestEmail: input.contactEmail || guestRows[0]?.email || "",
             hostName: hostRows[0]?.name || "Host",
@@ -135,10 +153,10 @@ export const bookingRouter = createRouter({
             roomType: input.roomType,
             addShuttle: input.addShuttle,
             seasonPass: input.seasonPass,
-            priceSubtotal: perNight * nights,
-            serviceFee: SERVICE_FEE_UGX,
-            vat: Math.round(perNight * nights * TAX_RATE),
-            totalPrice: serverTotal,
+            priceSubtotal: quote.subtotal,
+            serviceFee: quote.serviceFee,
+            vat: quote.tax,
+            totalPrice: quote.total,
             currency: "UGX",
           };
           enqueueBookingPipeline(payload);
@@ -147,7 +165,7 @@ export const bookingRouter = createRouter({
         }
       })();
 
-      return { id: bookingId, bookingRef: finalRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: serverTotal, status: "pending", message: "Booking created successfully. Payment required to confirm." };
+      return { id: bookingId, bookingRef: finalRef, propertyId: input.propertyId, checkIn: input.checkIn, checkOut: input.checkOut, totalPrice: quote.total, status: "pending", message: "Booking created successfully. Payment required to confirm." };
     }),
 
   listByUser: publicQuery.input(z.object({ userId: z.number() })).query(async ({ input, ctx }) => {
@@ -194,26 +212,20 @@ export const bookingRouter = createRouter({
     return { success: true, bookingRef: existing[0].bookingRef };
   }),
 
-  confirm: publicQuery.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-    if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "You must be logged in" });
+  confirm: adminQuery.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
     const db = getDb();
     const existing = await db.select().from(bookings).where(eq(bookings.id, input.id)).limit(1);
     if (existing.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-    // Only the property host or an admin may confirm
-    const prop = await db.select({ ownerId: properties.ownerId }).from(properties).where(eq(properties.id, existing[0].propertyId)).limit(1);
-    const isHost = prop.length > 0 && prop[0].ownerId === ctx.user.id;
-    if (!isHost && ctx.user.role !== "admin") {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Only the host or an admin can confirm bookings" });
-    }
     if (existing[0].status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot confirm booking with status: " + existing[0].status });
     await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, input.id));
     return { success: true, bookingRef: existing[0].bookingRef };
   }),
 
-  // Public payment lookup — returns only what the payment page needs (no userId/PII)
-  byRef: publicQuery.input(z.object({ bookingRef: z.string() })).query(async ({ input }) => {
+  // Return only payment-page fields and require the booking owner.
+  byRef: authedQuery.input(z.object({ bookingRef: z.string() })).query(async ({ input, ctx }) => {
     const db = getDb();
     const result = await db.select({
+      userId: bookings.userId,
       bookingRef: bookings.bookingRef,
       propertyId: bookings.propertyId,
       totalPrice: bookings.totalPrice,
@@ -226,7 +238,10 @@ export const bookingRouter = createRouter({
       addShuttle: bookings.addShuttle,
       seasonPass: bookings.seasonPass,
     }).from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
-    if (result.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-    return result[0];
+    if (result.length === 0 || result[0].userId !== ctx.user.id) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+    }
+    const { userId: _userId, ...booking } = result[0];
+    return booking;
   }),
 });

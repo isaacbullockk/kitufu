@@ -1,49 +1,59 @@
 import { useState, useMemo } from 'react'
-import { useParams, Link, useNavigate } from 'react-router'
+import { useParams, Link, useNavigate, useLocation } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
 import { motion } from 'framer-motion'
 import {
-  Calendar, Users, Bed, Lock, Minus, Plus, MapPin, Star,
-  CreditCard, Phone, Mail, User, Check, ChevronLeft, Shield,
+  Users, Bed, Lock, Minus, Plus, MapPin,
+  Phone, Mail, User, Check, ChevronLeft, Shield,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  calculateBookingQuote,
+  getStayNights,
+  MAX_STAY_NIGHTS,
+} from '@contracts/booking-pricing'
 
 type RoomType = 'multi_share' | 'twin' | 'private'
 
-const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string; priceFactor: number }[] = [
-  { id: 'multi_share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room', priceFactor: 0.5 },
-  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room', priceFactor: 0.78 },
-  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room', priceFactor: 1.44 },
+const ROOM_TYPES: { id: RoomType; icon: typeof Users; title: string; desc: string }[] = [
+  { id: 'multi_share', icon: Users, title: 'Multi-Share', desc: '4-6 beds per room' },
+  { id: 'twin', icon: Bed, title: 'Twin Room', desc: '2 beds per room' },
+  { id: 'private', icon: Lock, title: 'Private Room', desc: 'Your own room' },
 ]
-
-function nightsBetween(a: string, b: string): number {
-  if (!a || !b) return 0
-  const ms = new Date(b).getTime() - new Date(a).getTime()
-  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)))
-}
 
 export default function Booking() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
+  const bookingForm = (location.state as { bookingForm?: {
+    checkIn?: string
+    checkOut?: string
+    adults?: number
+    children?: number
+    roomType?: RoomType
+    contactName?: string
+    contactPhone?: string
+    contactEmail?: string
+    termsAccepted?: boolean
+  } } | null)?.bookingForm
 
   const { data: property } = trpc.property.byId.useQuery(
     { id: Number(id) },
     { enabled: !!id && !isNaN(Number(id)) }
   )
 
-  const [checkIn, setCheckIn] = useState('')
-  const [checkOut, setCheckOut] = useState('')
-  const [adults, setAdults] = useState(2)
-  const [children, setChildren] = useState(0)
-  const [roomType, setRoomType] = useState<RoomType>('twin')
-  const [contactName, setContactName] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile'>('card')
-  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [checkIn, setCheckIn] = useState(bookingForm?.checkIn ?? '')
+  const [checkOut, setCheckOut] = useState(bookingForm?.checkOut ?? '')
+  const [adults, setAdults] = useState(bookingForm?.adults ?? 1)
+  const [children, setChildren] = useState(bookingForm?.children ?? 0)
+  const [roomType, setRoomType] = useState<RoomType>(bookingForm?.roomType ?? 'twin')
+  const [contactName, setContactName] = useState(bookingForm?.contactName ?? '')
+  const [contactPhone, setContactPhone] = useState(bookingForm?.contactPhone ?? '')
+  const [contactEmail, setContactEmail] = useState(bookingForm?.contactEmail ?? '')
+  const [termsAccepted, setTermsAccepted] = useState(bookingForm?.termsAccepted ?? false)
 
   const createBooking = trpc.booking.create.useMutation({
     onSuccess: (data) => {
@@ -51,30 +61,45 @@ export default function Booking() {
     },
   })
 
-  const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut])
-  const roomInfo = ROOM_TYPES.find(r => r.id === roomType) || ROOM_TYPES[1]
-  const pricePerNight = property ? Math.round(property.pricePerNight * roomInfo.priceFactor) : 0
-  const subtotal = pricePerNight * nights
-  const serviceFee = property ? 28 : 0
-  const taxes = Math.round(subtotal * 0.18)
-  const total = subtotal + serviceFee + taxes
+  const nights = useMemo(() => getStayNights(checkIn, checkOut), [checkIn, checkOut])
+  const quote = property && nights > 0 && nights <= MAX_STAY_NIGHTS
+    ? calculateBookingQuote(property.pricePerNight, nights, roomType)
+    : null
+  const today = new Date().toISOString().slice(0, 10)
+  const guestLimit = Math.min(property?.capacity ?? 20, 20)
 
   const handleSubmit = () => {
-    if (!checkIn || !checkOut || !termsAccepted || !property) return
+    if (!checkIn || !checkOut || !termsAccepted || !property || !quote) return
+    if (!user) {
+      navigate('/login?returnTo=' + encodeURIComponent(location.pathname + location.search), {
+        state: {
+          bookingForm: {
+            checkIn,
+            checkOut,
+            adults,
+            children,
+            roomType,
+            contactName,
+            contactPhone,
+            contactEmail,
+            termsAccepted,
+          },
+        },
+      })
+      return
+    }
     createBooking.mutate({
       propertyId: property.id,
-      userId: user?.id,
       checkIn,
       checkOut,
       adults,
       children,
       roomType,
-      totalPrice: total,
       addShuttle: 0,
       seasonPass: 0,
       contactName,
       contactPhone,
-      contactEmail,
+      contactEmail: contactEmail.trim() || undefined,
     })
   }
 
@@ -123,8 +148,13 @@ export default function Booking() {
                     <label className="text-xs text-slate font-medium uppercase tracking-wide mb-1.5 block">Check-in</label>
                     <input
                       type="date"
+                      min={today}
                       value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
+                      onChange={(e) => {
+                        const nextCheckIn = e.target.value
+                        setCheckIn(nextCheckIn)
+                        if (checkOut && nextCheckIn >= checkOut) setCheckOut('')
+                      }}
                       className="w-full border border-light-grey rounded-lg px-4 py-3 text-sm text-deep-forest focus:outline-none focus:border-sunset focus:ring-2 focus:ring-sunset/20 transition-all"
                     />
                   </div>
@@ -132,6 +162,7 @@ export default function Booking() {
                     <label className="text-xs text-slate font-medium uppercase tracking-wide mb-1.5 block">Check-out</label>
                     <input
                       type="date"
+                      min={checkIn || today}
                       value={checkOut}
                       onChange={(e) => setCheckOut(e.target.value)}
                       className="w-full border border-light-grey rounded-lg px-4 py-3 text-sm text-deep-forest focus:outline-none focus:border-sunset focus:ring-2 focus:ring-sunset/20 transition-all"
@@ -140,6 +171,12 @@ export default function Booking() {
                 </div>
                 {nights > 0 && (
                   <p className="text-sm text-sunset font-medium mt-2">{nights} nights</p>
+                )}
+                {checkIn && checkOut && nights === 0 && (
+                  <p role="alert" className="text-sm text-red-600 mt-2">Check-out must be a valid date after check-in.</p>
+                )}
+                {nights > MAX_STAY_NIGHTS && (
+                  <p role="alert" className="text-sm text-red-600 mt-2">Stays are limited to {MAX_STAY_NIGHTS} nights.</p>
                 )}
               </motion.div>
 
@@ -157,7 +194,7 @@ export default function Booking() {
                         <Minus size={16} />
                       </button>
                       <span className="font-semibold text-deep-forest w-6 text-center">{adults}</span>
-                      <button onClick={() => setAdults(Math.min(20, adults + 1))} disabled={adults >= 20} className="w-9 h-9 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30">
+                      <button onClick={() => setAdults(Math.min(guestLimit, adults + 1))} disabled={adults + children >= guestLimit} className="w-9 h-9 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30">
                         <Plus size={16} />
                       </button>
                     </div>
@@ -172,12 +209,15 @@ export default function Booking() {
                         <Minus size={16} />
                       </button>
                       <span className="font-semibold text-deep-forest w-6 text-center">{children}</span>
-                      <button onClick={() => setChildren(Math.min(10, children + 1))} disabled={children >= 10} className="w-9 h-9 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30">
+                      <button onClick={() => setChildren(Math.max(0, Math.min(10, guestLimit - adults, children + 1)))} disabled={children >= 10 || adults + children >= guestLimit} className="w-9 h-9 rounded-full border border-light-grey flex items-center justify-center hover:bg-white transition-colors disabled:opacity-30">
                         <Plus size={16} />
                       </button>
                     </div>
                   </div>
                 </div>
+                {property && adults + children > property.capacity && (
+                  <p role="alert" className="text-sm text-red-600 mt-2">This stay allows up to {property.capacity} guests.</p>
+                )}
               </motion.div>
 
               {/* Room Type */}
@@ -230,21 +270,6 @@ export default function Booking() {
                 </div>
               </motion.div>
 
-              {/* Payment Method */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <h3 className="font-display font-bold text-deep-forest text-xl mb-4">Payment method</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setPaymentMethod('card')} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'card' ? 'border-sunset bg-sunset/5 text-deep-forest' : 'border-light-grey text-slate hover:border-sunset/50'}`}>
-                    <CreditCard size={18} />
-                    <span className="font-medium">Card</span>
-                  </button>
-                  <button onClick={() => setPaymentMethod('mobile')} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'mobile' ? 'border-sunset bg-sunset/5 text-deep-forest' : 'border-light-grey text-slate hover:border-sunset/50'}`}>
-                    <Phone size={18} />
-                    <span className="font-medium">Mobile Money</span>
-                  </button>
-                </div>
-              </motion.div>
-
               {/* Terms */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -293,19 +318,19 @@ export default function Booking() {
 
                 <Separator className="mb-4" />
 
-                {nights > 0 && (
+                {nights > 0 && nights <= MAX_STAY_NIGHTS && quote && (
                   <div className="space-y-2 mb-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate">USh {pricePerNight.toLocaleString()} × {nights} nights</span>
-                      <span className="text-deep-forest">USh {subtotal.toLocaleString()}</span>
+                      <span className="text-slate">USh {quote.perNight.toLocaleString()} × {nights} nights</span>
+                      <span className="text-deep-forest">USh {quote.subtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate">Service fee</span>
-                      <span className="text-deep-forest">USh {serviceFee.toLocaleString()}</span>
+                      <span className="text-deep-forest">USh {quote.serviceFee.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate">Taxes (18%)</span>
-                      <span className="text-deep-forest">USh {taxes.toLocaleString()}</span>
+                      <span className="text-deep-forest">USh {quote.tax.toLocaleString()}</span>
                     </div>
                   </div>
                 )}
@@ -314,16 +339,18 @@ export default function Booking() {
 
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-display font-bold text-deep-forest text-lg">Total</span>
-                  <span className="font-display text-price-display text-deep-forest">USh {total.toLocaleString()}</span>
+                  <span className="font-display text-price-display text-deep-forest">USh {(quote?.total ?? 0).toLocaleString()}</span>
                 </div>
 
                 <Button
                   className="w-full btn-sunset-gradient py-4 text-base mb-3"
-                  disabled={!checkIn || !checkOut || !termsAccepted || createBooking.isPending || !contactName || !contactPhone || !property}
+                  disabled={!checkIn || !checkOut || !termsAccepted || createBooking.isPending || !contactName || !contactPhone || !property || !quote || adults + children > property.capacity}
                   onClick={handleSubmit}
                 >
                   {createBooking.isPending ? 'Processing...' : 'Confirm & Pay'}
                 </Button>
+                {createBooking.error && <p role="alert" className="text-sm text-red-600 mb-3">{createBooking.error.message}</p>}
+                {quote === null && nights > 0 && nights <= MAX_STAY_NIGHTS && property && <p role="alert" className="text-sm text-red-600 mb-3">We can&apos;t calculate this booking total. Please contact support.</p>}
                 <p className="text-xs text-slate text-center mb-4">You won&apos;t be charged yet</p>
 
                 <div className="flex justify-center gap-4 text-xs text-slate">
