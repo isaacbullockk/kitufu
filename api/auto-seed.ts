@@ -26,6 +26,8 @@ const CREATE_PROPERTIES = `CREATE TABLE IF NOT EXISTS properties (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
+  countryCode VARCHAR(2) NOT NULL DEFAULT 'UG',
+  currencyCode VARCHAR(3) NOT NULL DEFAULT 'UGX',
   location VARCHAR(100) NOT NULL,
   address VARCHAR(255),
   pricePerNight INT UNSIGNED NOT NULL,
@@ -54,6 +56,7 @@ const CREATE_BOOKINGS = `CREATE TABLE IF NOT EXISTS bookings (
   children INT UNSIGNED DEFAULT 0,
   roomType ENUM('multi_share', 'twin', 'private') DEFAULT 'private',
   totalPrice INT UNSIGNED NOT NULL,
+  currencyCode VARCHAR(3) NOT NULL DEFAULT 'UGX',
   status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
   addShuttle INT DEFAULT 0,
   seasonPass INT DEFAULT 0,
@@ -168,7 +171,10 @@ export async function autoSeed() {
   console.log("[AUTO-SEED] Checking database...");
 
   await ensureTable("properties", CREATE_PROPERTIES);
+  await ensureColumn("properties", "countryCode", "countryCode VARCHAR(2) NOT NULL DEFAULT 'UG'");
+  await ensureColumn("properties", "currencyCode", "currencyCode VARCHAR(3) NOT NULL DEFAULT 'UGX'");
   await ensureTable("bookings", CREATE_BOOKINGS);
+  await ensureColumn("bookings", "currencyCode", "currencyCode VARCHAR(3) NOT NULL DEFAULT 'UGX'");
   await ensureTable("users", CREATE_USERS);
   // Idempotent column migrations for deployments created before local auth
   await ensureColumn("users", "email", "email VARCHAR(320)");

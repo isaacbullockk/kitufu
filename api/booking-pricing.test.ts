@@ -26,6 +26,17 @@ describe("booking date and price calculations", () => {
     });
   });
 
+  it("uses native KES and TZS totals without applying Uganda-only fees and tax", () => {
+    expect(calculateBookingQuote(10_000, 2, "twin", "KES")).toEqual({
+      perNight: 7_800,
+      subtotal: 15_600,
+      serviceFee: 0,
+      tax: 0,
+      total: 15_600,
+    });
+    expect(calculateBookingQuote(100_000, 1, "private", "TZS")?.total).toBe(144_000);
+  });
+
   it("rejects stays longer than the supported booking window", () => {
     expect(calculateBookingQuote(100_000, MAX_STAY_NIGHTS + 1, "private")).toBeNull();
   });

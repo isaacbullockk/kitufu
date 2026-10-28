@@ -53,7 +53,7 @@ export default function QuickBookModal({ propertyId, capacity, price, title, ima
 
   const nights = useMemo(() => getStayNights(checkIn, checkOut), [checkIn, checkOut])
   const quote = nights > 0 && nights <= MAX_STAY_NIGHTS
-    ? calculateBookingQuote(price, nights, roomType)
+    ? calculateBookingQuote(price, nights, roomType, "UGX")
     : null
   const today = new Date().toISOString().slice(0, 10)
   const guestLimit = Math.min(capacity, 20)

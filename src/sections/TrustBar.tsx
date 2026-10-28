@@ -2,6 +2,8 @@ import { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { Building2, Users, MapPin, Shield } from 'lucide-react'
 import { trpc } from '../providers/trpc'
+import { useCountry } from '../context/CountryContext'
+import { getActiveMarketCode } from '../config/countries'
 
 const fallbackStats = [
   { icon: Building2, number: 500, suffix: '+', label: 'Converted Residences' },
@@ -18,19 +20,25 @@ function formatNumber(n: number): string {
 export default function TrustBar() {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-20% 0px' })
+  const { country } = useCountry()
 
-  const { data: properties } = trpc.property.list.useQuery({ status: 'approved' })
+  const { data: properties } = trpc.property.list.useQuery({
+    countryCode: getActiveMarketCode(country.id),
+    status: 'approved',
+  })
 
   // Calculate real stats from data
-  const totalProperties = properties?.length ?? fallbackStats[0].number
-  const totalBeds = properties?.reduce((sum: number, p: any) => sum + (p.capacity || 0), 0) ?? fallbackStats[1].number
-  const uniqueCities = new Set(properties?.map((p: any) => p.location) ?? []).size || fallbackStats[2].number
+  const totalProperties = properties?.length ?? (country.code === 'UG' ? fallbackStats[0].number : 0)
+  const totalBeds = properties?.reduce((sum: number, p: any) => sum + (p.capacity || 0), 0) ?? (country.code === 'UG' ? fallbackStats[1].number : 0)
+  const uniqueCities = new Set(properties?.map((p: any) => p.location) ?? []).size || (country.code === 'UG' ? fallbackStats[2].number : 0)
 
   const stats = [
     { icon: Building2, number: totalProperties, suffix: '+', label: 'Converted Residences' },
     { icon: Users, number: totalBeds, suffix: '+', label: 'Beds Available' },
-    { icon: MapPin, number: Math.max(uniqueCities, 2), suffix: '', label: 'Host Cities' },
-    { icon: Shield, number: 100, suffix: '%', label: 'UTB Certified' },
+    { icon: MapPin, number: country.code === 'UG' ? Math.max(uniqueCities, 2) : uniqueCities, suffix: '', label: 'Host Cities' },
+    ...(country.code === 'UG'
+      ? [{ icon: Shield, number: 100, suffix: '%', label: 'UTB Certified' }]
+      : []),
   ]
 
   return (

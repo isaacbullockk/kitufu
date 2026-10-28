@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { Menu, X, UtensilsCrossed, Music } from 'lucide-react'
 import { useCurrency, CURRENCIES } from '@/context/CurrencyContext'
+import CountrySelector from '@/components/CountrySelector'
 import {
   Select,
   SelectContent,
@@ -112,7 +113,8 @@ export default function Navbar() {
         </div>
 
         {/* Currency Selector */}
-        <div className="hidden lg:flex items-center">
+        <div className="hidden lg:flex items-center gap-2">
+          <CountrySelector scrolled={scrolled} />
           <CurrencySelector scrolled={scrolled} />
         </div>
 
@@ -162,6 +164,10 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 top-16 bg-white z-[60]">
           <div className="flex flex-col p-6 gap-4">
+            <div className="self-start rounded-lg bg-deep-forest px-2">
+              <CountrySelector />
+            </div>
+            <CurrencySelector scrolled />
             {navLinks.map((link) => (
               <Link
                 key={link.href}

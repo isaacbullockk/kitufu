@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { CreditCard, Smartphone, CheckCircle, AlertCircle, Loader, Globe, ArrowLeft } from 'lucide-react'
 import { trpc } from '../providers/trpc'
 import { useAuth } from '../hooks/useAuth'
+import { getCountryByCode } from '@/config/countries'
 
 export default function PaymentPage() {
   const [searchParams] = useSearchParams()
@@ -91,8 +92,7 @@ export default function PaymentPage() {
     // Server derives the charge from the booking record — no client-side math
     if (method === "flutterwave") {
       initializeFlutterwave.mutate({
-        bookingRef, propertyId: booking.propertyId,
-        currency: "UGX", email, name, phone: phone || undefined, redirectUrl,
+        bookingRef, email, name, phone: phone || undefined, redirectUrl,
       })
     } else {
       initializeStripe.mutate({
@@ -104,6 +104,11 @@ export default function PaymentPage() {
 
   const isPending = initializeFlutterwave.isPending || initializeStripe.isPending
   const totalAmount = booking?.totalPrice || 0
+  const bookingCountryCode = booking?.currencyCode === "KES" ? "KE"
+    : booking?.currencyCode === "TZS" ? "TZ"
+    : "UG"
+  const bookingCountry = booking ? getCountryByCode(bookingCountryCode) : null
+  const currencySymbol = bookingCountry?.currency.symbol || "USh"
   const hasPaymentCallback = Boolean((status && txId) || sessionId)
   const paymentInitError = method === "flutterwave"
     ? initializeFlutterwave.error
@@ -193,7 +198,7 @@ export default function PaymentPage() {
     )
   }
 
-  if (booking.status !== "pending" && booking.status !== "confirmed") {
+  if (booking.status === "cancelled" || booking.status === "completed") {
     return (
       <div className="min-h-screen bg-deep-forest pt-24 pb-16 flex items-center justify-center px-4">
         <div className="bg-midnight rounded-2xl p-8 max-w-md w-full text-center">
@@ -221,24 +226,35 @@ export default function PaymentPage() {
 
           {/* Price summary */}
           <div className="bg-deep-forest rounded-xl p-5 mb-6">
-            <div className="flex justify-between mb-2"><span className="text-gray-400">Booking total (incl. service fee & 18% VAT)</span><span className="text-white">USh {booking.totalPrice?.toLocaleString()}</span></div>
-            <div className="border-t border-gray-700 pt-2 flex justify-between"><span className="text-white font-semibold">Total due</span><span className="text-savanna-gold font-bold text-lg">USh {totalAmount.toLocaleString()}</span></div>
+            <div className="flex justify-between mb-2"><span className="text-gray-400">Booking total</span><span className="text-white">{currencySymbol} {booking.totalPrice?.toLocaleString()}</span></div>
+            <div className="border-t border-gray-700 pt-2 flex justify-between"><span className="text-white font-semibold">Total due</span><span className="text-savanna-gold font-bold text-lg">{currencySymbol} {totalAmount.toLocaleString()}</span></div>
           </div>
+          {booking.currencyCode !== "UGX" && (
+            <p className="text-gray-400 text-xs mb-6">
+              This amount is charged in {booking.currencyCode}. The quote excludes Kitufu fees and local taxes. Host payouts are not automated through this checkout.
+            </p>
+          )}
 
           {/* Payment method selector */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-3">Choose Payment Method</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={booking.currencyCode === "UGX" ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
               <button onClick={() => setMethod("flutterwave")} className={(method === "flutterwave" ? "border-sunset bg-sunset/10" : "border-gray-700 bg-deep-forest") + " border rounded-xl p-4 text-center transition-colors"}>
                 <Smartphone className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-                <p className="text-white text-sm font-medium">Mobile Money</p>
-                <p className="text-gray-500 text-xs mt-1">MTN, Airtel</p>
+                <p className="text-white text-sm font-medium">
+                  {booking.currencyCode === "UGX" ? "Mobile Money" : "Flutterwave"}
+                </p>
+                <p className="text-gray-500 text-xs mt-1">{booking.currencyCode === "UGX"
+                  ? "MTN, Airtel"
+                  : booking.currencyCode === "KES" ? "Card and M-Pesa" : "Card and Tanzania Mobile Money"}</p>
               </button>
-              <button onClick={() => setMethod("stripe")} className={(method === "stripe" ? "border-sunset bg-sunset/10" : "border-gray-700 bg-deep-forest") + " border rounded-xl p-4 text-center transition-colors"}>
-                <Globe className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                <p className="text-white text-sm font-medium">Card</p>
-                <p className="text-gray-500 text-xs mt-1">Visa, Mastercard</p>
-              </button>
+              {booking.currencyCode === "UGX" && (
+                <button onClick={() => setMethod("stripe")} className={(method === "stripe" ? "border-sunset bg-sunset/10" : "border-gray-700 bg-deep-forest") + " border rounded-xl p-4 text-center transition-colors"}>
+                  <Globe className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                  <p className="text-white text-sm font-medium">Card</p>
+                  <p className="text-gray-500 text-xs mt-1">Visa, Mastercard</p>
+                </button>
+              )}
             </div>
           </div>
 
@@ -247,7 +263,7 @@ export default function PaymentPage() {
             <div><label className="block text-sm font-medium text-gray-300 mb-1">Full Name *</label><input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-deep-forest border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-sunset focus:outline-none" placeholder="John Doe" /></div>
             <div><label className="block text-sm font-medium text-gray-300 mb-1">Email *</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-deep-forest border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-sunset focus:outline-none" placeholder="john@example.com" /></div>
             {method === "flutterwave" && (
-              <div><label className="block text-sm font-medium text-gray-300 mb-1">Phone (for Mobile Money)</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-deep-forest border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-sunset focus:outline-none" placeholder="+256 772 123 456" /></div>
+              <div><label className="block text-sm font-medium text-gray-300 mb-1">Phone (for Mobile Money)</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-deep-forest border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-sunset focus:outline-none" placeholder={booking.currencyCode === "KES" ? "+254 712 345 678" : booking.currencyCode === "TZS" ? "+255 712 345 678" : "+256 772 123 456"} /></div>
             )}
           </div>
 
@@ -255,7 +271,7 @@ export default function PaymentPage() {
             className="w-full bg-sunset hover:bg-sunset/90 text-white font-semibold py-3.5 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             {isPending ? <><Loader className="w-5 h-5 animate-spin" /> Processing...</> : <>
               {method === "flutterwave" ? <Smartphone className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
-              Pay USh {totalAmount.toLocaleString()}
+              Pay {currencySymbol} {totalAmount.toLocaleString()}
             </>}
           </button>
 

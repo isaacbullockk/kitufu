@@ -14,8 +14,10 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import useEmblaCarousel from 'embla-carousel-react'
 import { trpc } from '@/providers/trpc'
-import ReviewsSection from '@/components/ReviewsSection'
 import QuickBookModal from '@/components/QuickBookModal'
+import { getCountryByCode } from '@/config/countries'
+import type { AppRouter } from '../../api/router'
+import type { inferRouterOutputs } from '@trpc/server'
 
 /* ------------------------------------------------------------------ */
 /*  TYPES                                                              */
@@ -31,6 +33,10 @@ interface UiPropertyDetail {
   rating: number
   reviewCount: number
   pricePerNight: number
+  countryCode: string
+  currencyCode: string
+  currencySymbol: string
+  countryName: string
   images: string[]
   amenities: { icon: typeof Bed; label: string }[]
   description: string
@@ -42,6 +48,7 @@ interface UiPropertyDetail {
   isKitufu: boolean
   isGroupFriendly: boolean
 }
+type PropertyDetailData = inferRouterOutputs<AppRouter>['property']['byId']
 
 /* ------------------------------------------------------------------ */
 /*  STATIC DATA (reviews, nearby, etc.)                                */
@@ -138,7 +145,7 @@ const AMENITY_ICON_MAP: Record<string, typeof Bed> = {
 /* ------------------------------------------------------------------ */
 
 function mapDbToUi(
-  db: NonNullable<ReturnType<typeof trpc.property.byId.useQuery>['data']>
+  db: PropertyDetailData
 ): UiPropertyDetail {
   const images: string[] = db.images ? JSON.parse(db.images) : []
   const rawAmenities: string[] = db.amenities ? JSON.parse(db.amenities) : []
@@ -170,17 +177,22 @@ function mapDbToUi(
   if (db.isGroupFriendly) badges.push('Group Friendly')
 
   const hasShuttle = !!db.hasShuttle
+  const country = getCountryByCode(db.countryCode || 'UG')
 
   return {
     id: db.id,
     title: db.title,
     subtitle: `${db.location} Fan Residence \u2022 ${db.bedrooms ?? 'Multi'}-Room Stay`,
-    location: db.address || `${db.location}, Uganda`,
+    location: db.address || `${db.location}, ${country.name}`,
     distanceToStadium: db.distanceToStadium,
     badges,
     rating: 4.5,
     reviewCount: 128,
     pricePerNight: db.pricePerNight,
+    countryCode: db.countryCode || 'UG',
+    currencyCode: db.currencyCode || 'UGX',
+    currencySymbol: country.currency.symbol,
+    countryName: country.name,
     images: images.length > 0 ? images : ['/property-kampala-1.jpg', '/property-kampala-2.jpg'],
     amenities: finalAmenities,
     description: db.description || `${db.title} is a ${db.isKitufu ? 'Kitufu Residence' : 'fan accommodation'} located in ${db.location}. It accommodates up to ${db.capacity} guests with ${db.bedrooms ?? 'multiple'} bedrooms and ${db.bathrooms ?? 'shared'} bathrooms. Enjoy amenities including ${rawAmenities.join(', ') || 'WiFi, AC, and Security'}.`,
@@ -468,6 +480,26 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
 
   const firstImage = property.images[0] || '/property-kampala-1.jpg'
 
+  if (property.countryCode !== 'UG' || property.currencyCode !== 'UGX') {
+    return (
+      <div className="bg-white border border-light-grey rounded-xl p-4 sm:p-6 shadow-card sticky top-[120px]">
+        <div className="flex items-baseline gap-1 mb-4">
+          <span className="font-display text-price-display text-deep-forest">
+            {property.currencySymbol} {property.pricePerNight.toLocaleString()}
+          </span>
+          <span className="text-slate text-sm">/ night</span>
+        </div>
+        <p className="text-sm text-slate mb-4">{property.countryName} local price ({property.currencyCode}).</p>
+        <div className="rounded-lg bg-warm-sand p-4 text-sm text-deep-forest">
+          Pay securely in {property.currencyCode} with Flutterwave. Host payouts are not automated through this checkout.
+        </div>
+        <Link to={`/booking/${property.id}`}>
+          <Button className="w-full btn-sunset-gradient mt-4">Book in {property.currencyCode}</Button>
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <>
       <motion.div
@@ -512,7 +544,7 @@ function BookingPanel({ property }: { property: UiPropertyDetail }) {
         </div>
 
         {/* Shuttle Toggle */}
-        {property.hasShuttle && (
+        {property.countryCode === 'UG' && property.hasShuttle && (
           <div className="flex items-center justify-between mb-4 p-3 bg-warm-sand rounded-lg">
             <div>
               <p className="text-sm font-medium text-deep-forest">Add Stadium Shuttle</p>
@@ -814,7 +846,9 @@ function SimilarProperties({ properties }: { properties: typeof SIMILAR_PROPERTI
                       </div>
                       <p className="text-sm text-slate mb-3">{prop.location}</p>
                       <div className="flex items-baseline gap-1">
-                        <span className="font-display font-bold text-deep-forest">USh {prop.price.toLocaleString()}</span>
+                        <span className="font-display font-bold text-deep-forest">
+                          {getCountryByCode('UG').currency.symbol} {prop.price.toLocaleString()}
+                        </span>
                         <span className="text-sm text-slate">/ night</span>
                       </div>
                     </div>
@@ -834,6 +868,24 @@ function SimilarProperties({ properties }: { properties: typeof SIMILAR_PROPERTI
 /* ------------------------------------------------------------------ */
 
 function LocationMapSection({ property }: { property: UiPropertyDetail }) {
+  if (property.countryCode !== 'UG') {
+    return (
+      <section className="section-padding">
+        <div className="container-kitufu">
+          <h2 className="font-display text-display-lg text-deep-forest mb-4">Where You&apos;ll Be</h2>
+          <div className="rounded-xl border border-light-grey bg-warm-sand p-6">
+            <p className="font-medium text-deep-forest">{property.location}</p>
+            <p className="text-sm text-slate mt-2">
+              {property.distanceToStadium
+                ? `${property.distanceToStadium} to a local venue or landmark, as provided by the host.`
+                : 'Venue and neighborhood map details are not available yet.'}
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="section-padding">
       <div className="container-kitufu">
@@ -933,7 +985,7 @@ function LocationMapSection({ property }: { property: UiPropertyDetail }) {
           <h3 className="font-display font-semibold text-deep-forest mb-3">What&apos;s nearby</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { name: `${property.city === 'Hoima' ? 'Hoima' : 'Namboole'} Shopping Centre`, distance: '0.3 km' },
+              { name: `${property.location} Shopping Centre`, distance: '0.3 km' },
               { name: 'Local Restaurants & Bars', distance: '0.5 km' },
               { name: 'Public Transport Hub', distance: '0.4 km' },
             ].map((place) => (
@@ -1159,17 +1211,21 @@ export default function PropertyDetail() {
               <motion.div variants={staggerItem} className="flex flex-wrap items-center gap-2 text-slate text-sm">
                 <MapPin size={16} className="text-slate shrink-0" />
                 <span>{property.location}</span>
-                <span>&bull;</span>
-                <span>{property.distanceToStadium} to stadium</span>
+                {property.distanceToStadium && <>
+                  <span>&bull;</span>
+                  <span>{property.distanceToStadium} to {property.countryCode === 'UG' ? 'stadium' : 'a local venue or landmark'}</span>
+                </>}
               </motion.div>
-              <motion.div variants={staggerItem}>
-                <Link
-                  to="/afcon-2027"
-                  className="text-teal-depth underline underline-offset-4 hover:text-deep-forest transition-colors text-sm mt-1 inline-block"
-                >
-                  View stadium info &rarr;
-                </Link>
-              </motion.div>
+              {property.countryCode === 'UG' && (
+                <motion.div variants={staggerItem}>
+                  <Link
+                    to="/afcon-2027"
+                    className="text-teal-depth underline underline-offset-4 hover:text-deep-forest transition-colors text-sm mt-1 inline-block"
+                  >
+                    View stadium info &rarr;
+                  </Link>
+                </motion.div>
+              )}
             </div>
 
             {/* Quick Actions */}
@@ -1262,7 +1318,7 @@ export default function PropertyDetail() {
               <Separator className="mb-10" />
 
               {/* Shuttle Info */}
-              {property.hasShuttle && (
+              {property.countryCode === 'UG' && property.hasShuttle && (
                 <>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -1359,17 +1415,14 @@ export default function PropertyDetail() {
       {/* Section 4: Location Map */}
       <LocationMapSection property={property} />
 
-      {/* Section 5: Nearby Restaurants */}
-      <NearbyRestaurants />
-
-      {/* Section 6: Nearby Attractions */}
-      <NearbyAttractions attractions={NEARBY_ATTRACTIONS} />
-
-      {/* Section 6: Similar Properties */}
-      <SimilarProperties properties={SIMILAR_PROPERTIES} />
-
-      {/* Section 6: Group Booking CTA */}
-      <GroupBookingCTA property={property} />
+      {property.countryCode === 'UG' && (
+        <>
+          <NearbyRestaurants />
+          <NearbyAttractions attractions={NEARBY_ATTRACTIONS} />
+          <SimilarProperties properties={SIMILAR_PROPERTIES} />
+          <GroupBookingCTA property={property} />
+        </>
+      )}
     </div>
   )
 }

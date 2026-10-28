@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { useCurrency } from '@/context/CurrencyContext'
+import { getCountryByCode } from '@/config/countries'
 import { trpc } from '@/providers/trpc'
 
 /* ------------------------------------------------------------------ */
@@ -433,7 +434,6 @@ function HostHeader() {
 /*  Tab 1: My Properties                                               */
 /* ------------------------------------------------------------------ */
 function MyProperties() {
-  const { formatPrice } = useCurrency()
   const { data: myProperties, isLoading, error } = trpc.host.listMyProperties.useQuery(undefined, { retry: false })
 
   if (isLoading) {
@@ -511,7 +511,9 @@ function MyProperties() {
                     </div>
                   </div>
                   <div className="text-sm md:text-right">
-                    <div className="font-semibold text-deep-forest">{formatPrice(p.pricePerNight)} / night</div>
+                    <div className="font-semibold text-deep-forest">
+                      {getCountryByCode(p.countryCode || 'UG').currency.symbol} {p.pricePerNight.toLocaleString()} / night
+                    </div>
                     <div className="text-slate">{p.capacity} guest capacity</div>
                   </div>
                 </div>

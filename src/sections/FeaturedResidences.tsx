@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router'
 import { motion, useInView } from 'framer-motion'
 import { Heart, Star, Bed, Wind, Wifi, Shield, Bus, Lock } from 'lucide-react'
 import { trpc } from '../providers/trpc'
-import { useCurrency } from '../context/CurrencyContext'
+import { useCountry } from '../context/CountryContext'
+import { getActiveMarketCode } from '../config/countries'
 
 const fallbackProperties = [
   { id: 1, image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', badges: [{ label: 'Kitufu Residence', color: 'bg-sunset' }], name: 'Kampala Central Hub', location: 'Namboole, Kampala', distance: '2.1 km to Mandela Stadium', rating: 4.7, reviews: 128, amenities: [{ icon: Bed, label: 'Twin' }, { icon: Wind, label: 'AC' }, { icon: Wifi, label: 'WiFi' }, { icon: Shield, label: 'Security' }], pricePerNight: 45000, nights: 7 },
@@ -15,9 +16,13 @@ export default function FeaturedResidences() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: '-100px' })
   const navigate = useNavigate()
-  const { formatPrice } = useCurrency()
+  const { country } = useCountry()
+  const formatPrice = (amount: number) => `${country.currency.symbol} ${amount.toLocaleString()}`
 
-  const { data: apiProperties, isLoading } = trpc.property.list.useQuery({ status: 'approved' })
+  const { data: apiProperties, isLoading } = trpc.property.list.useQuery({
+    countryCode: getActiveMarketCode(country.id),
+    status: 'approved',
+  })
 
   // Map API properties to display format, fallback to static if API fails
   const properties = (apiProperties && apiProperties.length > 0)
@@ -26,15 +31,17 @@ export default function FeaturedResidences() {
         image: (p.images ? JSON.parse(p.images)[0] : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'),
         badges: [{ label: p.isKitufu ? 'Kitufu Residence' : 'Verified Stay', color: 'bg-sunset' }, ...(p.hasShuttle ? [{ label: 'Shuttle', color: 'bg-teal-depth' }] : [])],
         name: p.title,
-        location: p.location + ', Uganda',
-        distance: p.distanceToStadium ? p.distanceToStadium + ' to stadium' : '',
+        location: p.location + ', ' + country.name,
+        distance: p.distanceToStadium
+          ? `${p.distanceToStadium} to ${country.code === 'UG' ? 'stadium' : 'local venue or landmark'}`
+          : '',
         rating: 4.5 + (p.id % 10) / 10,
         reviews: 50 + (p.id * 37) % 200,
         amenities: [{ icon: Bed, label: p.bedrooms + ' BR' }, { icon: Wind, label: 'AC' }, { icon: Wifi, label: 'WiFi' }, { icon: Shield, label: 'Security' }],
         pricePerNight: p.pricePerNight,
         nights: 7,
       }))
-    : fallbackProperties
+    : country.code === 'UG' ? fallbackProperties : []
 
   return (
     <section className="bg-deep-forest py-20" ref={ref}>
@@ -69,6 +76,11 @@ export default function FeaturedResidences() {
                     <span key={j} className={badge.color + ' text-white text-xs font-medium px-2.5 py-1 rounded-full'}>{badge.label}</span>
                   ))}
                 </div>
+                {!isLoading && properties.length === 0 && (
+                  <p className="text-gray-400 text-center py-10">
+                    No approved stays are listed in {country.name} yet. Be the first to add one.
+                  </p>
+                )}
                 <button className="absolute top-3 right-3 w-9 h-9 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-sunset transition-colors">
                   <Heart className="w-4 h-4" />
                 </button>

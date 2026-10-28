@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { useCountry } from '@/context/CountryContext';
-import { COUNTRY_LIST } from '@/config/countries';
+import { ACTIVE_MARKETS } from '@/config/countries';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 
-export default function CountrySelector() {
+export default function CountrySelector({ scrolled = false }: { scrolled?: boolean }) {
   const { country, setCountry } = useCountry();
   const [open, setOpen] = useState(false);
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-          bg-white/10 hover:bg-white/20 text-white transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          scrolled ? 'text-deep-forest hover:bg-warm-sand' : 'bg-white/10 hover:bg-white/20 text-white'
+        }`}
         aria-label="Select country"
       >
         <Globe className="w-4 h-4" />
@@ -33,8 +35,9 @@ export default function CountrySelector() {
             <p className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
               Select Country
             </p>
-            {COUNTRY_LIST.map((c) => (
+            {ACTIVE_MARKETS.map((c) => (
               <button
+                type="button"
                 key={c.id}
                 onClick={() => { setCountry(c.id); setOpen(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-left

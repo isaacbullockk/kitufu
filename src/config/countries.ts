@@ -53,7 +53,7 @@ export interface CountryConfig {
   regulatory: {
     body: string;
     bodyShort: string;
-    licenseRequired: boolean;
+    licenseRequired: boolean | null;
     licenseName: string;
     taxInfo: string;
   };
@@ -64,7 +64,7 @@ export interface CountryConfig {
   };
 }
 
-const UGANDA: CountryConfig = {
+export const UGANDA: CountryConfig = {
   id: "uganda",
   code: "UG",
   name: "Uganda",
@@ -107,6 +107,15 @@ const UGANDA: CountryConfig = {
       highlights: ["Hoima Stadium", "Murchison Falls NP", "Bunyoro Kingdom Palace", "Lake Albert views", "Budongo Forest (chimpanzees)", "Kibiro Salt Gardens"],
       image: "/hoima-city.jpg",
     },
+    ...["Entebbe", "Jinja", "Gulu", "Mbarara", "Fort Portal", "Arua"].map((name) => ({
+      id: name.toLowerCase().replace(/ /g, "-"),
+      name,
+      tagline: `Discover ${name}`,
+      airport: "",
+      description: `Find accommodation in ${name}, Uganda.`,
+      highlights: [],
+      image: "",
+    })),
   ],
   venues: [
     { name: "Mandela National Stadium", capacity: 45000, city: "Kampala", description: "Uganda\'s largest stadium, undergoing major renovation for AFCON 2027.", matches: "Group stage, Round of 16, Quarter-final" },
@@ -139,6 +148,114 @@ const UGANDA: CountryConfig = {
     providers: ["Flutterwave", "Mobile Money", "Bank Transfer"],
     mobileMoney: ["MTN Mobile Money", "Airtel Money"],
     currenciesAccepted: ["UGX", "USD", "EUR", "GBP"],
+  },
+};
+
+const KENYA: CountryConfig = {
+  id: "kenya",
+  code: "KE",
+  name: "Kenya",
+  nameLocal: "Kenya",
+  domain: "kitufu.com",
+  currency: { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  language: { code: "en", name: "English", greeting: "Karibu" },
+  flag: "🇰🇪",
+  branding: {
+    name: "Kitufu Kenya",
+    tagline: "Find your place in Kenya",
+    description: "Discover places to stay across Kenya.",
+    primaryColor: "#E85D04",
+    secondaryColor: "#2D6A4F",
+  },
+  event: {
+    name: "AFCON 2027",
+    year: 2027,
+    dates: "June – July 2027",
+    tagline: "Kenya, Tanzania and Uganda host AFCON 2027",
+  },
+  cities: ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"].map((name) => ({
+    id: name.toLowerCase(),
+    name,
+    tagline: `Discover ${name}`,
+    airport: "",
+    description: `Find accommodation in ${name}, Kenya.`,
+    highlights: [],
+    image: "",
+  })),
+  venues: [],
+  tourism: { title: "Discover Kenya", items: [] },
+  contact: {
+    emergency: "999",
+    touristPolice: "",
+    embassy: "",
+    supportEmail: "hello@kitufu.com",
+    supportPhone: "",
+  },
+  regulatory: {
+    body: "Tourism Regulatory Authority",
+    bodyShort: "TRA",
+    licenseRequired: null,
+    licenseName: "Confirm current accommodation registration rules before listing",
+    taxInfo: "Confirm applicable tax obligations with a Kenyan adviser",
+  },
+  payment: {
+    providers: ["Online booking and payouts are not yet available"],
+    mobileMoney: ["M-Pesa (payment integration not yet available)"],
+    currenciesAccepted: ["KES"],
+  },
+};
+
+const TANZANIA: CountryConfig = {
+  id: "tanzania",
+  code: "TZ",
+  name: "Tanzania",
+  nameLocal: "Tanzania",
+  domain: "kitufu.com",
+  currency: { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
+  language: { code: "sw", name: "Swahili", greeting: "Karibu" },
+  flag: "🇹🇿",
+  branding: {
+    name: "Kitufu Tanzania",
+    tagline: "Find your place in Tanzania",
+    description: "Discover places to stay across Tanzania.",
+    primaryColor: "#E85D04",
+    secondaryColor: "#2D6A4F",
+  },
+  event: {
+    name: "AFCON 2027",
+    year: 2027,
+    dates: "June – July 2027",
+    tagline: "Kenya, Tanzania and Uganda host AFCON 2027",
+  },
+  cities: ["Dar es Salaam", "Arusha", "Zanzibar City", "Dodoma", "Mwanza"].map((name) => ({
+    id: name.toLowerCase().replace(/ /g, "-"),
+    name,
+    tagline: `Discover ${name}`,
+    airport: "",
+    description: `Find accommodation in ${name}, Tanzania.`,
+    highlights: [],
+    image: "",
+  })),
+  venues: [],
+  tourism: { title: "Discover Tanzania", items: [] },
+  contact: {
+    emergency: "112",
+    touristPolice: "",
+    embassy: "",
+    supportEmail: "hello@kitufu.com",
+    supportPhone: "",
+  },
+  regulatory: {
+    body: "Ministry of Natural Resources and Tourism",
+    bodyShort: "MNRT",
+    licenseRequired: null,
+    licenseName: "Confirm current accommodation registration rules before listing",
+    taxInfo: "Confirm applicable tax obligations with a Tanzanian adviser",
+  },
+  payment: {
+    providers: ["Online booking and payouts are not yet available"],
+    mobileMoney: ["M-Pesa and mobile money (payment integration not yet available)"],
+    currenciesAccepted: ["TZS"],
   },
 };
 
@@ -321,13 +438,29 @@ const IVORY_COAST: CountryConfig = {
   },
 };
 
-export const COUNTRY_LIST: CountryConfig[] = [UGANDA, MOROCCO, IVORY_COAST];
+export const COUNTRY_LIST: CountryConfig[] = [UGANDA, KENYA, TANZANIA, MOROCCO, IVORY_COAST];
+export const ACTIVE_MARKETS: CountryConfig[] = [UGANDA, KENYA, TANZANIA];
 
 export const DEFAULT_COUNTRY = "uganda";
+
+export function getActiveMarketCode(id: string): "UG" | "KE" | "TZ" {
+  switch (id) {
+    case "uganda": return "UG";
+    case "kenya": return "KE";
+    case "tanzania": return "TZ";
+    default: throw new Error("Unsupported Kitufu market: " + id);
+  }
+}
 
 export function getCountry(id: string): CountryConfig {
   const country = COUNTRY_LIST.find((c) => c.id === id);
   if (!country) throw new Error("Country not found: " + id);
+  return country;
+}
+
+export function getCountryByCode(code: string): CountryConfig {
+  const country = ACTIVE_MARKETS.find((market) => market.code === code);
+  if (!country) throw new Error("Market not found: " + code);
   return country;
 }
 

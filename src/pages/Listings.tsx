@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
 import { Star, Bed, Wind, Wifi, Shield, Bus, MapPin, ArrowUpDown, Plane, UtensilsCrossed, Filter, X, ChevronDown, Users, TrendingDown, BadgeCheck } from 'lucide-react'
 import { trpc } from '../providers/trpc'
 import QuickBookModal from '@/components/QuickBookModal'
-import { useCurrency } from '@/context/CurrencyContext'
+import { useCountry } from '@/context/CountryContext'
+import { getActiveMarketCode } from '@/config/countries'
 
 function parseDistance(dist: string | null): number {
   if (!dist) return 999
@@ -13,8 +14,6 @@ function parseDistance(dist: string | null): number {
 }
 
 type SortOption = 'distance' | 'price-asc' | 'price-desc' | 'value' | 'rating'
-
-const CITIES = ['All Cities', 'Kampala', 'Entebbe', 'Jinja', 'Hoima', 'Gulu', 'Mbarara', 'Lubowa', 'Kira', 'Kyaliwajjala']
 
 const PROXIMITY_LABELS = [
   { max: 1, label: 'Stadium Walk', color: 'bg-green-500', icon: MapPin },
@@ -31,10 +30,11 @@ function getProximityBadge(distKm: number) {
 
 export default function Listings() {
   const navigate = useNavigate()
-  const { formatPrice } = useCurrency()
+  const { country } = useCountry()
+  const priceLimit = country.code === 'KE' ? 100000 : country.code === 'TZ' ? 1000000 : 300000
   const [city, setCity] = useState('')
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 300000])
-  const [sortBy, setSortBy] = useState<SortOption>('distance')
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, priceLimit])
+  const [sortBy, setSortBy] = useState<SortOption>(country.code === 'UG' ? 'distance' : 'price-asc')
   const [nearStadiumOnly, setNearStadiumOnly] = useState(false)
   const [shuttleOnly, setShuttleOnly] = useState(false)
   const [groupFriendlyOnly, setGroupFriendlyOnly] = useState(false)
@@ -49,8 +49,19 @@ export default function Listings() {
   const [nights, setNights] = useState(3)
   const [guests, setGuests] = useState(2)
 
+  useEffect(() => {
+    setCity('')
+    setPriceRange([0, priceLimit])
+    setNearStadiumOnly(false)
+    setShuttleOnly(false)
+    setSortBy(country.code === 'UG' ? 'distance' : 'price-asc')
+  }, [country.code, priceLimit])
+
+  const formatPrice = (amount: number) => `${country.currency.symbol} ${amount.toLocaleString()}`
+
   const { data: properties, isLoading } = trpc.property.list.useQuery({
     city: city || undefined,
+    countryCode: getActiveMarketCode(country.id),
     status: 'approved',
   })
 
@@ -90,7 +101,9 @@ export default function Listings() {
   }, [properties, priceRange, sortBy, nearStadiumOnly, shuttleOnly, groupFriendlyOnly, nights])
 
   const cheapest = processed.length > 0 ? processed.reduce((min: any, p: any) => p.pricePerNight < min.pricePerNight ? p : min, processed[0]) : null
-  const closest = processed.length > 0 ? processed.reduce((min: any, p: any) => p.distKm < min.distKm ? p : min, processed[0]) : null
+  const closest = country.code === 'UG' && processed.length > 0
+    ? processed.reduce((min: any, p: any) => p.distKm < min.distKm ? p : min, processed[0])
+    : null
   const bestValue = processed.length > 0 ? processed.reduce((min: any, p: any) => p.pricePerPerson < min.pricePerPerson ? p : min, processed[0]) : null
 
   return (
@@ -100,7 +113,12 @@ export default function Listings() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">Find Your Stay</h1>
-            <p className="text-gray-400">{processed.length} properties near Mandela National Stadium</p>
+            <p className="text-gray-400">{processed.length} properties in {country.name}</p>
+            {country.code !== 'UG' && (
+              <p className="text-amber-300 text-sm mt-1">
+                Prices are shown in {country.currency.code}. Online booking and payment are not available in this market yet.
+              </p>
+            )}
             {isLoading && <p className="text-savanna-gold text-sm mt-1">Loading from database...</p>}
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -136,7 +154,9 @@ export default function Listings() {
                   <span className="text-xs text-sunset font-bold uppercase tracking-wider">Best Price</span>
                 </div>
                 <p className="text-white font-bold truncate group-hover:text-sunset transition-colors">{cheapest.title}</p>
-                <p className="text-gray-400 text-sm">{formatPrice(cheapest.pricePerNight)}/night • {cheapest.distanceToStadium}</p>
+                <p className="text-gray-400 text-sm">
+                  {formatPrice(cheapest.pricePerNight)}/night{cheapest.distanceToStadium ? ` • ${cheapest.distanceToStadium}` : ''}
+                </p>
               </button>
             )}
             {bestValue && (
@@ -157,7 +177,7 @@ export default function Listings() {
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
             {/* City Filter */}
             <div className="flex gap-2 flex-wrap">
-              {CITIES.map(c => (
+              {['All Cities', ...country.cities.map((marketCity) => marketCity.name)].map(c => (
                 <button key={c} onClick={() => setCity(c === 'All Cities' ? '' : c)} 
                   className={(city === (c === 'All Cities' ? '' : c) ? 'bg-sunset text-white' : 'bg-deep-forest text-gray-400 hover:text-white') + ' px-3 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap'}>
                   {c}
@@ -170,7 +190,7 @@ export default function Listings() {
               <ArrowUpDown className="w-4 h-4 text-gray-400" />
               <select value={sortBy} onChange={e => setSortBy(e.target.value as SortOption)}
                 className="bg-deep-forest text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:outline-none focus:border-sunset">
-                <option value="distance">Closest to Stadium</option>
+                {country.code === 'UG' && <option value="distance">Closest to Stadium</option>}
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
                 <option value="value">Best Value (per person)</option>
@@ -190,12 +210,12 @@ export default function Listings() {
                 {/* Price Range */}
                 <div>
                   <label className="text-gray-400 text-xs mb-2 block">Max Price: {formatPrice(priceRange[1])}</label>
-                  <input type="range" min="0" max="300000" step="5000" value={priceRange[1]} 
+                  <input type="range" min="0" max={priceLimit} step={country.code === 'KE' ? 1000 : 5000} value={priceRange[1]}
                     onChange={e => setPriceRange([0, Number(e.target.value)])}
                     className="w-full accent-sunset" />
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
                     <span>Free</span>
-                    <span>{formatPrice(300000)}</span>
+                    <span>{formatPrice(priceLimit)}</span>
                   </div>
                 </div>
                 {/* Stay Calculator */}
@@ -218,14 +238,16 @@ export default function Listings() {
                 </div>
                 {/* Toggles */}
                 <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={nearStadiumOnly} onChange={e => setNearStadiumOnly(e.target.checked)} className="w-4 h-4 accent-sunset rounded" />
-                    <span className="text-gray-300 text-sm">Within 3km of Stadium</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={shuttleOnly} onChange={e => setShuttleOnly(e.target.checked)} className="w-4 h-4 accent-sunset rounded" />
-                    <span className="text-gray-300 text-sm">Stadium Shuttle Only</span>
-                  </label>
+                  {country.code === 'UG' && <>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={nearStadiumOnly} onChange={e => setNearStadiumOnly(e.target.checked)} className="w-4 h-4 accent-sunset rounded" />
+                      <span className="text-gray-300 text-sm">Within 3km of Stadium</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={shuttleOnly} onChange={e => setShuttleOnly(e.target.checked)} className="w-4 h-4 accent-sunset rounded" />
+                      <span className="text-gray-300 text-sm">Stadium Shuttle Only</span>
+                    </label>
+                  </>}
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={groupFriendlyOnly} onChange={e => setGroupFriendlyOnly(e.target.checked)} className="w-4 h-4 accent-sunset rounded" />
                     <span className="text-gray-300 text-sm">Group Friendly</span>
@@ -245,7 +267,7 @@ export default function Listings() {
         ) : processed.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg mb-4">No properties match your filters</p>
-            <button onClick={() => { setCity(''); setPriceRange([0, 300000]); setNearStadiumOnly(false); setShuttleOnly(false); setGroupFriendlyOnly(false); }} 
+            <button onClick={() => { setCity(''); setPriceRange([0, priceLimit]); setNearStadiumOnly(false); setShuttleOnly(false); setGroupFriendlyOnly(false); }}
               className="text-sunset hover:underline">Clear all filters</button>
           </div>
         ) : (
@@ -274,11 +296,11 @@ export default function Listings() {
                       {p.isKitufu === 1 && <span className="bg-white/90 text-deep-forest text-xs px-2 py-0.5 rounded-full font-bold">Kitufu Verified</span>}
                     </div>
                     {/* Distance badge */}
-                    <div className="absolute bottom-3 left-3">
+                    {country.code === 'UG' && <div className="absolute bottom-3 left-3">
                       <span className={`${badge.color} text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1`}>
-                        <badge.icon className="w-3 h-3" /> {p.distanceToStadium}
+                        <badge.icon className="w-3 h-3" /> {p.distanceToStadium || 'Distance unavailable'}
                       </span>
-                    </div>
+                    </div>}
                     {/* Price badge */}
                     <div className="absolute bottom-3 right-3">
                       <span className="bg-deep-forest/90 text-white text-sm font-bold px-3 py-1.5 rounded-lg backdrop-blur-sm">
@@ -295,7 +317,8 @@ export default function Listings() {
                       </div>
                     </div>
                     <p className="text-gray-400 text-sm flex items-center gap-1 mb-2">
-                      <MapPin className="w-3 h-3 text-sage" /> {p.location} • {p.distanceToStadium} from stadium
+                      <MapPin className="w-3 h-3 text-sage" /> {p.location}
+                      {country.code === 'UG' && p.distanceToStadium ? ` • ${p.distanceToStadium} from stadium` : ''}
                     </p>
                     {/* Amenities */}
                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -316,12 +339,17 @@ export default function Listings() {
                         <p className="text-xs text-gray-500">{formatPrice(p.pricePerPerson)} <span className="text-gray-600">/person/night</span></p>
                         <p className="text-sm text-sage font-bold">{formatPrice(p.totalCost)} <span className="text-gray-500 text-xs font-normal">for {nights} nights</span></p>
                       </div>
-                      <div className="flex gap-2">
+                      {country.code === 'UG' ? (
                         <button onClick={() => setQuickBookProperty({ id: p.id, title: p.title, capacity: p.capacity, pricePerNight: p.pricePerNight, image: p.firstImage })}
                           className="bg-sunset hover:bg-sunset/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
                           Book Now
                         </button>
-                      </div>
+                      ) : (
+                        <button onClick={() => navigate('/booking/' + p.id)}
+                          className="bg-sunset hover:bg-sunset/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                          Book Now
+                        </button>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -331,7 +359,7 @@ export default function Listings() {
         )}
       </div>
 
-      {quickBookProperty && (
+      {country.code === 'UG' && quickBookProperty && (
         <QuickBookModal
           propertyId={quickBookProperty.id}
           capacity={quickBookProperty.capacity}

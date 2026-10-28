@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { bookings, properties } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { getBookingCurrency } from "../contracts/booking-pricing";
 
 // Flutterwave config
 const FLW_SECRET = process.env.FLUTTERWAVE_SECRET_KEY || "";
@@ -14,6 +15,7 @@ interface FlutterwavePayload {
   amount: number;
   currency: string;
   redirect_url: string;
+  payment_options: string;
   customer: { email: string; name: string; phone_number?: string };
   customizations: { title: string; description: string; logo: string };
   meta?: { bookingRef: string; propertyId: number };
@@ -53,9 +55,6 @@ export const paymentRouter = createRouter({
   initialize: publicQuery
     .input(z.object({
       bookingRef: z.string().min(1),
-      propertyId: z.number().positive(),
-      amount: z.number().positive().optional(), // IGNORED — amount is server-authoritative
-      currency: z.string().default("UGX"),
       email: z.string().email(),
       name: z.string().min(1),
       phone: z.string().optional(),
@@ -63,7 +62,27 @@ export const paymentRouter = createRouter({
     }))
     .mutation(async ({ input }) => {
       assertAllowedRedirect(input.redirectUrl);
+      const db = getDb();
+      const bk = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
+      if (bk.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+      if (bk[0].status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is not awaiting payment" });
+      }
+
+      const [property] = await db.select().from(properties).where(
+        and(eq(properties.id, bk[0].propertyId), eq(properties.status, "approved"))
+      ).limit(1);
+      if (!property) throw new TRPCError({ code: "NOT_FOUND", message: "Property is not available for payment" });
+
+      const currencyCode = getBookingCurrency(property.countryCode);
+      if (!currencyCode || currencyCode !== (bk[0].currencyCode || "UGX") || property.currencyCode !== currencyCode) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Booking and property currencies do not match" });
+      }
+
       if (!FLW_SECRET) {
+        if (currencyCode !== "UGX") {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Flutterwave credentials are required for live KES and TZS payments" });
+        }
         // Demo mode: return a mock payment link
         return {
           paymentLink: input.redirectUrl + "?status=successful&tx_ref=" + input.bookingRef + "&transaction_id=demo-" + Date.now(),
@@ -73,21 +92,19 @@ export const paymentRouter = createRouter({
       }
 
       try {
-        // Server-authoritative amount: look up the booking, never trust the client
-        const db = getDb();
-        const bk = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
-        if (bk.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-        if (bk[0].status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is not awaiting payment (status: " + bk[0].status + ")" });
         const serverAmount = bk[0].totalPrice;
-
-        const prop = await db.select().from(properties).where(eq(properties.id, input.propertyId)).limit(1);
-        const propertyTitle = prop[0]?.title || "Kitufu Booking";
+        const paymentOptions = {
+          UGX: "card, mobilemoneyuganda",
+          KES: "card, mpesa",
+          TZS: "card, mobilemoneytanzania",
+        }[currencyCode];
 
         const payload: FlutterwavePayload = {
           tx_ref: input.bookingRef,
           amount: serverAmount,
-          currency: input.currency,
+          currency: currencyCode,
           redirect_url: input.redirectUrl,
+          payment_options: paymentOptions,
           customer: {
             email: input.email,
             name: input.name,
@@ -95,12 +112,12 @@ export const paymentRouter = createRouter({
           },
           customizations: {
             title: "Kitufu Residences",
-            description: "Booking payment for " + propertyTitle,
+            description: "Booking payment for " + property.title,
             logo: "https://kitufu.com/logo.png",
           },
           meta: {
             bookingRef: input.bookingRef,
-            propertyId: input.propertyId,
+            propertyId: property.id,
           },
         };
 
@@ -136,7 +153,11 @@ export const paymentRouter = createRouter({
           throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
         }
 
+        const currencyCode = booking[0].currencyCode || "UGX";
         if (!FLW_SECRET) {
+          if (currencyCode !== "UGX") {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Flutterwave credentials are required to verify this payment" });
+          }
           // Demo mode ONLY when no Flutterwave key is configured at all
           await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, booking[0].id));
           return { success: true, status: "confirmed", demo: true };
@@ -152,6 +173,9 @@ export const paymentRouter = createRouter({
           // Bind the transaction to THIS booking — blocks replaying one payment across many bookings
           if (result.data.tx_ref !== input.bookingRef) {
             return { success: false, status: "reference_mismatch", message: "Transaction does not belong to this booking" };
+          }
+          if (result.data.currency !== currencyCode) {
+            return { success: false, status: "currency_mismatch", message: "Transaction currency does not match the booking" };
           }
           // Only a pending booking can be confirmed — blocks re-using the same transaction
           if (booking[0].status !== "pending") {

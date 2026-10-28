@@ -5,6 +5,8 @@ import { Plane, Bed, UtensilsCrossed, Calendar, Users, MapPin, ChevronRight, Che
 import { trpc } from '../providers/trpc'
 import FlightSearch from '@/components/FlightSearch'
 import { useCurrency } from '@/context/CurrencyContext'
+import { useCountry } from '@/context/CountryContext'
+import { getActiveMarketCode } from '@/config/countries'
 
 function parseDistance(dist: string | null): number {
   if (!dist) return 999
@@ -22,6 +24,7 @@ const STEPS = [
 export default function TripPlanner() {
   const navigate = useNavigate()
   const { formatPrice } = useCurrency()
+  const { country } = useCountry()
   const [step, setStep] = useState(0)
   const [tripData, setTripData] = useState({
     origin: '',
@@ -32,7 +35,10 @@ export default function TripPlanner() {
     selectedProperty: null as any,
   })
 
-  const { data: properties } = trpc.property.list.useQuery({ status: 'approved' })
+  const { data: properties } = trpc.property.list.useQuery({
+    countryCode: getActiveMarketCode(country.id),
+    status: 'approved',
+  })
 
   const processedProperties = (properties || [])
     .map((p: any) => ({
@@ -54,6 +60,22 @@ export default function TripPlanner() {
 
   const nextStep = () => setStep(s => Math.min(s + 1, 3))
   const prevStep = () => setStep(s => Math.max(s - 1, 0))
+
+  if (country.code !== 'UG') {
+    return (
+      <div className="min-h-screen bg-deep-forest pt-24 pb-16">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h1 className="text-4xl font-bold text-white mb-3">Trip planner coming soon</h1>
+          <p className="text-gray-300 mb-6">
+            The trip planner currently covers Uganda only. You can browse {country.name} listings, with prices shown in {country.currency.code}; online booking is not available yet.
+          </p>
+          <button onClick={() => navigate('/listings')} className="bg-sunset text-white px-6 py-3 rounded-lg font-bold">
+            Browse {country.name} stays
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-deep-forest pt-24 pb-16">

@@ -8,6 +8,7 @@ import { eq, and, desc, sql, inArray, or } from "drizzle-orm";
 import { enqueueBookingPipeline, type BookingPayload } from "./booking-pipeline";
 import {
   calculateBookingQuote,
+  getBookingCurrency,
   getStayNights,
   MAX_STAY_NIGHTS,
 } from "@contracts/booking-pricing";
@@ -57,7 +58,7 @@ export const bookingRouter = createRouter({
 
       // Lock the property row so concurrent reservations for the same property
       // cannot both pass the overlap check before either inserts its booking.
-      const { id: bookingId, ref: finalRef, property, quote } = await db.transaction(async (tx) => {
+      const { id: bookingId, ref: finalRef, property, quote, currencyCode } = await db.transaction(async (tx) => {
         const lockedProperties = await tx.select().from(properties)
           .where(eq(properties.id, input.propertyId))
           .limit(1)
@@ -67,6 +68,13 @@ export const bookingRouter = createRouter({
         if (lockedProperty.status !== "approved") {
           throw new TRPCError({ code: "NOT_FOUND", message: "Property is not available for booking" });
         }
+        const currencyCode = getBookingCurrency(lockedProperty.countryCode);
+        if (!currencyCode || currencyCode !== (lockedProperty.currencyCode || "UGX")) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Payments are not configured for this property's currency.",
+          });
+        }
         if (input.adults + input.children > lockedProperty.capacity) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -74,7 +82,7 @@ export const bookingRouter = createRouter({
           });
         }
 
-        const quote = calculateBookingQuote(lockedProperty.pricePerNight, nights, input.roomType);
+        const quote = calculateBookingQuote(lockedProperty.pricePerNight, nights, input.roomType, currencyCode);
         if (!quote) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The total for this stay is outside the supported booking range" });
         }
@@ -98,8 +106,11 @@ export const bookingRouter = createRouter({
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
             result = await tx.insert(bookings).values({
-              propertyId: input.propertyId, userId: effectiveUserId, checkIn: input.checkIn, checkOut: input.checkOut,
+              propertyId: input.propertyId, userId: effectiveUserId,
+              checkIn: new Date(`${input.checkIn}T00:00:00.000Z`),
+              checkOut: new Date(`${input.checkOut}T00:00:00.000Z`),
               adults: input.adults, children: input.children, roomType: input.roomType, totalPrice: quote.total,
+              currencyCode,
               status: "pending", addShuttle: input.addShuttle, seasonPass: input.seasonPass, bookingRef: ref,
             });
             break;
@@ -112,11 +123,11 @@ export const bookingRouter = createRouter({
         const id = Number(result[0].insertId);
 
         // Batch availability block — one insert, all nights (checkOut day excluded: guest leaves that morning)
-        const rows: { propertyId: number; date: string; isBooked: number; bookingId: number }[] = [];
+        const rows: { propertyId: number; date: Date; isBooked: number; bookingId: number }[] = [];
         const start = new Date(input.checkIn);
         const end = new Date(input.checkOut);
         for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
-          rows.push({ propertyId: input.propertyId, date: d.toISOString().split("T")[0], isBooked: 1, bookingId: id });
+          rows.push({ propertyId: input.propertyId, date: d, isBooked: 1, bookingId: id });
         }
         if (rows.length > 0) {
           // availability has no unique key on (propertyId, date) — delete-then-insert keeps it idempotent
@@ -125,7 +136,7 @@ export const bookingRouter = createRouter({
           );
           await tx.insert(availability).values(rows);
         }
-        return { id, ref, property: lockedProperty, quote };
+        return { id, ref, property: lockedProperty, quote, currencyCode };
       });
 
       // AI pipeline (Nemotron logistics -> Kimi comms -> Nemotron QA) runs via a bounded
@@ -155,9 +166,9 @@ export const bookingRouter = createRouter({
             seasonPass: input.seasonPass,
             priceSubtotal: quote.subtotal,
             serviceFee: quote.serviceFee,
-            vat: quote.tax,
+            tax: quote.tax,
             totalPrice: quote.total,
-            currency: "UGX",
+            currency: currencyCode,
           };
           enqueueBookingPipeline(payload);
         } catch (err) {
@@ -229,6 +240,7 @@ export const bookingRouter = createRouter({
       bookingRef: bookings.bookingRef,
       propertyId: bookings.propertyId,
       totalPrice: bookings.totalPrice,
+      currencyCode: bookings.currencyCode,
       status: bookings.status,
       checkIn: bookings.checkIn,
       checkOut: bookings.checkOut,

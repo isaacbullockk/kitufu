@@ -14,6 +14,8 @@
  * On NVIDIA NIM the same ids are used as-is.
  */
 
+import type { BookingCurrency } from "../contracts/booking-pricing";
+
 const NIM_BASE = "https://integrate.api.nvidia.com/v1";
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
@@ -108,11 +110,11 @@ export interface BookingPayload {
   roomType: "multi_share" | "twin" | "private";
   addShuttle: number; // 0 | 1
   seasonPass: number; // 0 | 1
-  priceSubtotal: number; // UGX — room only
-  serviceFee: number; // UGX
-  vat: number; // UGX
-  totalPrice: number; // UGX — subtotal + serviceFee + vat (server-authoritative)
-  currency: "UGX";
+  priceSubtotal: number;
+  serviceFee: number;
+  tax: number;
+  totalPrice: number;
+  currency: BookingCurrency;
 }
 
 export interface BookingLogistics {
@@ -127,10 +129,11 @@ export interface BookingLogistics {
   season_pass: boolean;
   strict_terms: string[];
   price_breakdown: {
-    subtotal_ugx: number;
-    service_fee_ugx: number;
-    vat_ugx: number;
-    total_ugx: number;
+    subtotal: number;
+    service_fee: number;
+    tax: number;
+    total: number;
+    currency: BookingCurrency;
   };
   logistics_notes: string;
 }
@@ -236,7 +239,7 @@ export async function run_booking_logistics(
     MODELS[provider.kind].logistics,
     [
       "You are the logistics router for Kitufu, an accommodation booking bureau",
-      "for AFCON 2027 in Uganda. Convert the booking payload into a strict",
+      "for AFCON 2027 in East Africa. Convert the booking payload into a strict",
       "operational logistics blueprint as JSON. AFCON 2027 runs mid-June to",
       "mid-July 2027. Reject nothing; normalise and structure. Output ONLY JSON.",
     ].join(" "),
@@ -244,8 +247,9 @@ export async function run_booking_logistics(
       `Return JSON with keys: booking_ref, stay_summary, nights, check_in, ` +
       `check_out, room_type, occupancy {adults, children}, shuttle_booked, ` +
       `season_pass, strict_terms (array of strings: check-in/check-out times, ` +
-      `ID requirement, payment terms, cancellation rule), price_breakdown ` +
-      `{subtotal_ugx, service_fee_ugx, vat_ugx, total_ugx}, logistics_notes.`,
+      `ID requirement, payment terms, cancellation rule), and price_breakdown ` +
+      `{subtotal, service_fee, tax, total, currency}. Copy all amounts and the ` +
+      `currency exactly from the payload; do not invent or recalculate fees or tax.`,
     { temperature: 0.2, maxTokens: 4096, json: true },
   );
   return extractJson<BookingLogistics>(raw);
@@ -263,7 +267,7 @@ export async function run_booking_communications(
     provider,
     MODELS[provider.kind].comms,
     [
-      "You are Kitufu's guest communications writer (Kitufu = AFCON 2027 Uganda",
+      "You are Kitufu's guest communications writer (Kitufu = AFCON 2027 East Africa",
       "booking bureau). Write warm, concise, plain-text emails. Use only facts",
       "from the logistics blueprint — never invent prices, dates or policies.",
       "Output ONLY JSON.",
@@ -271,7 +275,7 @@ export async function run_booking_communications(
     `Logistics blueprint:\n${JSON.stringify(logistics_json, null, 2)}\n\n` +
       `Guest name: ${payload.guestName}\nProperty: ${payload.propertyTitle}\n\n` +
       `Return JSON with keys: guest_subject, guest_email (confirmation with ` +
-      `booking ref, dates, room, price breakdown incl. VAT, strict_terms as a ` +
+      `booking ref, dates, room, price breakdown and currency, strict_terms as a ` +
       `bulleted list), host_subject, host_email (new-booking alert: guest ` +
       `name, dates, party size, room type, shuttle/season pass flags).`,
     { temperature: 0.7, maxTokens: 4096, json: true },
@@ -295,7 +299,7 @@ export async function run_booking_qa(
       "You are the final logistical QA gateway for Kitufu bookings. Compare the",
       "original booking payload against the logistics blueprint and the drafted",
       "emails. Verify: booking_ref, dates, nights, room type, occupancy, all",
-      "price figures (subtotal + service fee + VAT = total), and that strict",
+      "price figures (subtotal + service fee + tax = total) and currency, and that strict",
       "terms appear verbatim in the guest email. Temperature 0 — be exact.",
       "Output ONLY JSON.",
     ].join(" "),

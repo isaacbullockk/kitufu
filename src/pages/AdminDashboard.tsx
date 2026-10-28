@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { trpc } from '@/providers/trpc'
 import { useAuth } from '@/hooks/useAuth'
 import { useCurrency } from '@/context/CurrencyContext'
+import { getCountryByCode } from '@/config/countries'
 import { LOGIN_PATH } from '@/const'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -74,7 +75,6 @@ function fmtDate(d: string | Date | null): string {
 /*  Tab 1: Pending Properties                                          */
 /* ------------------------------------------------------------------ */
 function PendingPropertiesTab() {
-  const { formatPrice } = useCurrency()
   const utils = trpc.useUtils()
   const { data: pendingList, isLoading } = trpc.admin.listPendingProperties.useQuery()
 
@@ -122,9 +122,11 @@ function PendingPropertiesTab() {
             <TableRow key={property.id} className="hover:bg-cream">
               <TableCell className="font-mono text-sm text-slate">#{property.id}</TableCell>
               <TableCell className="font-medium text-charcoal">{property.title}</TableCell>
-              <TableCell className="text-slate">{property.location}</TableCell>
+              <TableCell className="text-slate">
+                {property.location}, {getCountryByCode(property.countryCode || 'UG').name}
+              </TableCell>
               <TableCell className="font-medium text-deep-forest">
-                {formatPrice(property.pricePerNight)}
+                {getCountryByCode(property.countryCode || 'UG').currency.symbol} {property.pricePerNight.toLocaleString()}
               </TableCell>
               <TableCell className="text-slate">{property.ownerId}</TableCell>
               <TableCell className="text-slate">{fmtDate(property.createdAt)}</TableCell>
@@ -216,7 +218,7 @@ function AllBookingsTab() {
                     {fmtDate(booking.checkIn)} — {fmtDate(booking.checkOut)}
                   </TableCell>
                   <TableCell className="font-medium text-deep-forest">
-                    {formatPrice(booking.totalPrice)}
+                    {getCountryByCode(booking.currencyCode === "KES" ? "KE" : booking.currencyCode === "TZS" ? "TZ" : "UG").currency.symbol} {booking.totalPrice.toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={booking.status} />

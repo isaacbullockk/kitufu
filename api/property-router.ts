@@ -4,6 +4,7 @@ import { authedQuery, createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { properties, bookings } from "@db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { getCountry } from "../src/config/countries";
 
 export const propertyRouter = createRouter({
   // List properties with filters
@@ -11,6 +12,7 @@ export const propertyRouter = createRouter({
     .input(
       z.object({
         city: z.string().optional(),
+        countryCode: z.enum(["UG", "KE", "TZ"]).default("UG"),
         minPrice: z.number().min(0).optional(),
         maxPrice: z.number().min(0).optional(),
         hasShuttle: z.boolean().optional(),
@@ -24,6 +26,7 @@ export const propertyRouter = createRouter({
         let query = db.select().from(properties);
 
         const conditions = [];
+        conditions.push(eq(properties.countryCode, input?.countryCode || "UG"));
         if (input?.city) conditions.push(eq(properties.location, input.city));
         if (input?.minPrice !== undefined) conditions.push(sql`${properties.pricePerNight} >= ${input.minPrice}`);
         if (input?.maxPrice !== undefined) conditions.push(sql`${properties.pricePerNight} <= ${input.maxPrice}`);
@@ -85,8 +88,9 @@ export const propertyRouter = createRouter({
         title: z.string().min(3, "Title must be at least 3 characters").max(255),
         description: z.string().min(10, "Description must be at least 10 characters"),
         location: z.string().min(1, "Location is required"),
+        countryCode: z.enum(["UG", "KE", "TZ"]).default("UG"),
         address: z.string().optional(),
-        pricePerNight: z.number().positive("Price must be positive"),
+        pricePerNight: z.number().int().positive("Price must be a positive whole number"),
         capacity: z.number().positive("Capacity must be positive"),
         bedrooms: z.number().min(0).default(0),
         bathrooms: z.number().min(0).default(0),
@@ -101,9 +105,15 @@ export const propertyRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       try {
         const db = getDb();
+        const countryId = { UG: "uganda", KE: "kenya", TZ: "tanzania" }[input.countryCode];
+        const country = getCountry(countryId);
+        if (!country.cities.some((city) => city.name === input.location)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a city in the selected country" });
+        }
 
         const result = await db.insert(properties).values({
           ...input,
+          currencyCode: country.currency.code,
           ownerId: ctx.user.id,
           status: "pending",
           amenities: input.amenities || "[]",
@@ -119,6 +129,7 @@ export const propertyRouter = createRouter({
           status: "pending",
         };
       } catch (err: any) {
+        if (err instanceof TRPCError) throw err;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create property: " + err.message,

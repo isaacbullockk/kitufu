@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { type CountryConfig, getCountry, UGANDA } from '@/config/countries';
+import { ACTIVE_MARKETS, type CountryConfig, getCountry, UGANDA } from '@/config/countries';
 
 interface CountryContextType {
   country: CountryConfig;
@@ -20,12 +20,14 @@ export function CountryProvider({ children }: { children: ReactNode }) {
 
     // 1. Check localStorage
     const saved = localStorage.getItem('kitufu-country');
-    if (saved) return getCountry(saved);
+    const savedMarket = ACTIVE_MARKETS.find((market) => market.id === saved);
+    if (savedMarket) return savedMarket;
+    if (saved) localStorage.removeItem('kitufu-country');
 
     // 2. Check URL subdomain or path
     const host = window.location.host;
-    if (host.includes('.ma') || host.includes('morocco')) return getCountry('morocco');
-    if (host.includes('.ci') || host.includes('ivoire') || host.includes('cote')) return getCountry('ivory-coast');
+    if (host.endsWith('.ke') || host.includes('kenya')) return getCountry('kenya');
+    if (host.endsWith('.tz') || host.includes('tanzania')) return getCountry('tanzania');
 
     // 3. Default
     return UGANDA;
@@ -35,11 +37,12 @@ export function CountryProvider({ children }: { children: ReactNode }) {
   const [isLoading] = useState(false);
 
   const setCountry = useCallback((id: string) => {
-    const config = getCountry(id);
+    const config = ACTIVE_MARKETS.find((market) => market.id === id);
+    if (!config) throw new Error(`Unsupported Kitufu market: ${id}`);
     setCountryState(config);
     localStorage.setItem('kitufu-country', id);
     // Update document title
-    document.title = `${config.branding.brandName} Residences | ${config.event.name} ${config.name === 'Uganda' ? '' : config.name}`;
+    document.title = `${config.branding.name} | ${config.event.name}`;
   }, []);
 
   return (

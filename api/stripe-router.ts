@@ -38,6 +38,15 @@ export const stripeRouter = createRouter({
     .mutation(async ({ input }) => {
       assertAllowedRedirect(input.successUrl);
       assertAllowedRedirect(input.cancelUrl);
+      const db = getDb();
+      const bk = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
+      if (bk.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+      if (bk[0].status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is not awaiting payment" });
+      }
+      if ((bk[0].currencyCode || "UGX") !== "UGX") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Use Flutterwave to pay in this booking's local currency" });
+      }
       if (!STRIPE_SECRET) {
         // Demo mode
         return {
@@ -50,10 +59,6 @@ export const stripeRouter = createRouter({
       try {
         // Server-authoritative amount: look up the booking, never trust the client.
         // UGX is a zero-decimal currency in Stripe — unit_amount is the shilling amount directly.
-        const db = getDb();
-        const bk = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
-        if (bk.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
-        if (bk[0].status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Booking is not awaiting payment (status: " + bk[0].status + ")" });
         const serverAmount = bk[0].totalPrice;
 
         const resp = await fetch("https://api.stripe.com/v1/checkout/sessions", {
@@ -100,8 +105,14 @@ export const stripeRouter = createRouter({
         const db = getDb();
         const booking = await db.select().from(bookings).where(eq(bookings.bookingRef, input.bookingRef)).limit(1);
         if (booking.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+        if ((booking[0].currencyCode || "UGX") !== "UGX") {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Stripe payment verification is not enabled for this currency" });
+        }
 
         if (!STRIPE_SECRET) {
+          if (booking[0].status !== "pending") {
+            return { success: false, status: "already_" + booking[0].status, message: "Booking is not awaiting payment" };
+          }
           // Demo mode ONLY when no Stripe key is configured at all
           await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, booking[0].id));
           return { success: true, status: "confirmed", demo: true };
@@ -116,6 +127,9 @@ export const stripeRouter = createRouter({
           // Bind the session to THIS booking — blocks replaying one paid session across many bookings
           if (result.metadata?.bookingRef !== input.bookingRef) {
             return { success: false, status: "reference_mismatch", message: "Session does not belong to this booking" };
+          }
+          if (result.currency?.toUpperCase() !== (booking[0].currencyCode || "UGX").toUpperCase()) {
+            return { success: false, status: "currency_mismatch", message: "Session currency does not match the booking" };
           }
           // Only a pending booking can be confirmed — blocks session re-use
           if (booking[0].status !== "pending") {

@@ -9,8 +9,10 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { getCountryByCode } from '@/config/countries'
 import {
   calculateBookingQuote,
+  getBookingCurrency,
   getStayNights,
   MAX_STAY_NIGHTS,
 } from '@contracts/booking-pricing'
@@ -63,7 +65,12 @@ export default function Booking() {
 
   const nights = useMemo(() => getStayNights(checkIn, checkOut), [checkIn, checkOut])
   const quote = property && nights > 0 && nights <= MAX_STAY_NIGHTS
-    ? calculateBookingQuote(property.pricePerNight, nights, roomType)
+    ? calculateBookingQuote(
+        property.pricePerNight,
+        nights,
+        roomType,
+        getBookingCurrency(property.countryCode) || "UGX",
+      )
     : null
   const today = new Date().toISOString().slice(0, 10)
   const guestLimit = Math.min(property?.capacity ?? 20, 20)
@@ -105,6 +112,8 @@ export default function Booking() {
 
   const propertyImage = property?.images ? (() => { try { return JSON.parse(property.images)[0] } catch { return '/property-kampala-1.jpg' } })() : '/property-kampala-1.jpg'
 
+  const country = property ? getCountryByCode(property.countryCode || "UG") : null
+  const currencySymbol = country?.currency.symbol || "USh"
   return (
     <div className="min-h-[100dvh] bg-white">
       {/* Header */}
@@ -321,17 +330,21 @@ export default function Booking() {
                 {nights > 0 && nights <= MAX_STAY_NIGHTS && quote && (
                   <div className="space-y-2 mb-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate">USh {quote.perNight.toLocaleString()} × {nights} nights</span>
-                      <span className="text-deep-forest">USh {quote.subtotal.toLocaleString()}</span>
+                      <span className="text-slate">{currencySymbol} {quote.perNight.toLocaleString()} × {nights} nights</span>
+                      <span className="text-deep-forest">{currencySymbol} {quote.subtotal.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate">Service fee</span>
-                      <span className="text-deep-forest">USh {quote.serviceFee.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate">Taxes (18%)</span>
-                      <span className="text-deep-forest">USh {quote.tax.toLocaleString()}</span>
-                    </div>
+                    {quote.serviceFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate">Service fee</span>
+                        <span className="text-deep-forest">{currencySymbol} {quote.serviceFee.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {quote.tax > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate">Taxes (18%)</span>
+                        <span className="text-deep-forest">{currencySymbol} {quote.tax.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -339,8 +352,13 @@ export default function Booking() {
 
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-display font-bold text-deep-forest text-lg">Total</span>
-                  <span className="font-display text-price-display text-deep-forest">USh {(quote?.total ?? 0).toLocaleString()}</span>
+                  <span className="font-display text-price-display text-deep-forest">{currencySymbol} {(quote?.total ?? 0).toLocaleString()}</span>
                 </div>
+                {property?.currencyCode !== "UGX" && (
+                  <p className="text-xs text-slate mb-4">
+                    This quote is in {property?.currencyCode}. Kitufu does not add a local tax or service fee to this amount.
+                  </p>
+                )}
 
                 <Button
                   className="w-full btn-sunset-gradient py-4 text-base mb-3"

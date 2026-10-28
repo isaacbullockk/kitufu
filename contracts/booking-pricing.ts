@@ -8,6 +8,15 @@ export const ROOM_PRICE_FACTORS: Record<BookingRoomType, number> = {
 
 export const SERVICE_FEE_UGX = 28;
 export const TAX_RATE = 0.18;
+export type BookingCurrency = "UGX" | "KES" | "TZS";
+export function getBookingCurrency(countryCode: string): BookingCurrency | null {
+  switch (countryCode) {
+    case "UG": return "UGX";
+    case "KE": return "KES";
+    case "TZ": return "TZS";
+    default: return null;
+  }
+}
 export const MAX_STAY_NIGHTS = 365;
 const MAX_BOOKING_TOTAL_UGX = 2_147_483_647;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -42,6 +51,7 @@ export function calculateBookingQuote(
   basePricePerNight: number,
   nights: number,
   roomType: BookingRoomType,
+  currency: BookingCurrency = "UGX",
 ): { perNight: number; subtotal: number; serviceFee: number; tax: number; total: number } | null {
   if (
     !Number.isSafeInteger(basePricePerNight) ||
@@ -55,8 +65,8 @@ export function calculateBookingQuote(
 
   const perNight = Math.round(basePricePerNight * ROOM_PRICE_FACTORS[roomType]);
   const subtotal = perNight * nights;
-  const serviceFee = SERVICE_FEE_UGX;
-  const tax = Math.round(subtotal * TAX_RATE);
+  const serviceFee = currency === "UGX" ? SERVICE_FEE_UGX : 0;
+  const tax = currency === "UGX" ? Math.round(subtotal * TAX_RATE) : 0;
   const total = subtotal + serviceFee + tax;
 
   if (!Number.isSafeInteger(total) || total > MAX_BOOKING_TOTAL_UGX) {

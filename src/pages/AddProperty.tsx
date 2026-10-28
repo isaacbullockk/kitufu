@@ -3,14 +3,14 @@ import { useNavigate } from "react-router"
 import { motion, AnimatePresence } from "framer-motion"
 import { trpc } from "../providers/trpc"
 import { useAuth } from "../hooks/useAuth"
+import { useCountry } from "@/context/CountryContext"
+import { getActiveMarketCode } from "@/config/countries"
 import {
   Building2, Upload, X, Check, ChevronLeft, ChevronRight,
   MapPin, DollarSign, Users, Bed, Bath, Wifi, Wind, UtensilsCrossed,
   Tv, Waves, Dumbbell, Car, Shield, LayoutGrid, Bus, UsersRound,
   AlertCircle, Save, Eye, Star, Image as ImageIcon
 } from "lucide-react"
-
-const LOCATIONS = ["Kampala", "Hoima", "Entebbe", "Jinja", "Gulu", "Mbarara", "Fort Portal", "Arua"]
 
 const AMENITY_OPTIONS = [
   { key: "WiFi", icon: Wifi, label: "WiFi" },
@@ -24,8 +24,6 @@ const AMENITY_OPTIONS = [
   { key: "Balcony", icon: LayoutGrid, label: "Balcony" },
   { key: "Shuttle", icon: Bus, label: "Shuttle" },
 ]
-
-const DRAFT_KEY = "kitufu_property_draft"
 
 const steps = [
   { label: "Basics", icon: Building2 },
@@ -70,22 +68,31 @@ const defaultForm: FormData = {
 
 export default function AddProperty() {
   const navigate = useNavigate()
+  const { country } = useCountry()
   const { user, isLoading: isAuthLoading } = useAuth()
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState<FormData>(defaultForm)
+  const [form, setForm] = useState<FormData>(() => ({
+    ...defaultForm,
+    location: country.cities[0]?.name ?? "",
+  }))
+  const [formCountryId, setFormCountryId] = useState(country.id)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showDraftPrompt, setShowDraftPrompt] = useState(false)
+  const [draftPromptChecked, setDraftPromptChecked] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploadingImages, setIsUploadingImages] = useState(false)
   const [success, setSuccess] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const uploadImage = trpc.upload.image.useMutation()
+  const draftKey = country.id === "uganda"
+    ? "kitufu_property_draft"
+    : `kitufu_property_draft_${country.id}`
 
   const createProperty = trpc.property.create.useMutation({
     onSuccess: () => {
       setSuccess(true)
       setIsSubmitting(false)
-      localStorage.removeItem(DRAFT_KEY)
+      localStorage.removeItem(draftKey)
     },
     onError: () => {
       setIsSubmitting(false)
@@ -100,16 +107,22 @@ export default function AddProperty() {
 
   // Load draft on mount
   useEffect(() => {
-    const draft = localStorage.getItem(DRAFT_KEY)
-    if (draft) {
-      try {
-        setShowDraftPrompt(true)
-      } catch {}
-    }
-  }, [])
+    const draft = localStorage.getItem(draftKey)
+    setShowDraftPrompt(Boolean(draft))
+    setDraftPromptChecked(true)
+  }, [draftKey])
+
+  useEffect(() => {
+    if (formCountryId === country.id) return
+    const hasDraft = Boolean(localStorage.getItem(draftKey))
+    setFormCountryId(country.id)
+    setForm({ ...defaultForm, location: country.cities[0]?.name ?? "" })
+    setShowDraftPrompt(hasDraft)
+    setDraftPromptChecked(true)
+  }, [country, draftKey, formCountryId])
 
   const loadDraft = () => {
-    const draft = localStorage.getItem(DRAFT_KEY)
+    const draft = localStorage.getItem(draftKey)
     if (draft) {
       setForm(JSON.parse(draft))
     }
@@ -117,16 +130,16 @@ export default function AddProperty() {
   }
 
   const clearDraft = () => {
-    localStorage.removeItem(DRAFT_KEY)
+    localStorage.removeItem(draftKey)
     setShowDraftPrompt(false)
   }
 
   // Auto-save draft
   useEffect(() => {
-    if (!success) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
+    if (draftPromptChecked && formCountryId === country.id && !showDraftPrompt && !success) {
+      localStorage.setItem(draftKey, JSON.stringify(form))
     }
-  }, [form, success])
+  }, [country.id, draftKey, draftPromptChecked, form, formCountryId, showDraftPrompt, success])
 
   const update = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -154,7 +167,10 @@ export default function AddProperty() {
     }
     if (s === 2) {
       const price = Number(form.pricePerNight)
-      if (!form.pricePerNight || price < 1000) e.pricePerNight = "Price must be at least 1,000 USh"
+      const minimumPrice = country.code === "UG" ? 1000 : 1
+      if (!form.pricePerNight || price < minimumPrice) {
+        e.pricePerNight = `Price must be at least ${country.currency.symbol} ${minimumPrice.toLocaleString()}`
+      }
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -236,6 +252,7 @@ export default function AddProperty() {
       title: form.title,
       description: form.description,
       location: form.location,
+      countryCode: getActiveMarketCode(country.id),
       address: form.address,
       pricePerNight: Number(form.pricePerNight),
       capacity: form.capacity,
@@ -293,7 +310,7 @@ export default function AddProperty() {
             List Your Property
           </h1>
           <p className="text-slate font-body">
-            Fill in your property details step by step. Your progress auto-saves.
+            Add your property in {country.name}. Your progress auto-saves.
           </p>
         </div>
 
@@ -412,7 +429,7 @@ export default function AddProperty() {
                         onChange={(e) => update("location", e.target.value)}
                         className="w-full px-4 py-3 border border-light-grey rounded-lg font-body focus:outline-none focus:ring-2 focus:ring-deep-forest bg-white"
                       >
-                        {LOCATIONS.map((loc) => (
+                        {country.cities.map(({ name: loc }) => (
                           <option key={loc} value={loc}>
                             {loc}
                           </option>
@@ -453,7 +470,7 @@ export default function AddProperty() {
 
                   <div>
                     <label className="block text-sm font-body text-deep-forest mb-1.5">
-                      Distance to Mandela Stadium
+                      Distance to {country.code === "UG" ? "nearest stadium" : "a local venue or landmark"}
                     </label>
                     <input
                       type="text"
@@ -556,14 +573,15 @@ export default function AddProperty() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-body text-deep-forest mb-1.5">
-                        Price per Night (USh) *
+                        Price per Night ({country.currency.symbol}) *
                       </label>
                       <input
                         type="number"
+                        step="1"
                         value={form.pricePerNight}
                         onChange={(e) => update("pricePerNight", e.target.value)}
-                        placeholder="85000"
-                        min="1000"
+                        placeholder={country.code === "UG" ? "85000" : "Enter local-currency amount"}
+                        min={country.code === "UG" ? "1000" : "1"}
                         className="w-full px-4 py-3 border border-light-grey rounded-lg font-body focus:outline-none focus:ring-2 focus:ring-deep-forest"
                       />
                       {errors.pricePerNight && (
@@ -742,12 +760,14 @@ export default function AddProperty() {
                         <span className="flex items-center gap-1"><Bath className="w-3 h-3" /> {form.bathrooms} bath</span>
                       </div>
                       {form.distanceToStadium && (
-                        <p className="text-xs text-sage mt-1">{form.distanceToStadium} from stadium</p>
+                        <p className="text-xs text-sage mt-1">
+                          {form.distanceToStadium} from {country.code === "UG" ? "stadium" : "venue or landmark"}
+                        </p>
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-display text-lg font-bold text-deep-forest">
-                        USh {totalPrice.toLocaleString()}
+                        {country.currency.symbol} {totalPrice.toLocaleString()}
                       </p>
                       <p className="text-xs text-slate">per night</p>
                     </div>
@@ -775,7 +795,7 @@ export default function AddProperty() {
                   </div>
                   <div className="flex justify-between py-2 border-b border-light-grey">
                     <span className="text-slate text-sm">Price</span>
-                    <span className="font-body text-deep-forest">USh {totalPrice.toLocaleString()} / night</span>
+                    <span className="font-body text-deep-forest">{country.currency.symbol} {totalPrice.toLocaleString()} / night</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-light-grey">
                     <span className="text-slate text-sm">Capacity</span>
@@ -816,7 +836,7 @@ export default function AddProperty() {
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
+                    localStorage.setItem(draftKey, JSON.stringify(form))
                     alert("Draft saved!")
                   }}
                   className="flex items-center gap-2 px-5 py-2.5 text-deep-forest border border-deep-forest rounded-lg font-body text-sm hover:bg-deep-forest hover:text-white transition-colors"
