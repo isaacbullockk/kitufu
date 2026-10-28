@@ -441,7 +441,17 @@ function MyProperties() {
   }
 
   if (error) {
-    return <p role="alert" className="py-12 text-center text-red-600">{error.message}</p>
+    return (
+      <div className="py-12 text-center">
+        <p role="alert" className="text-red-600">{error.message}</p>
+        <Link
+          to={`/login?returnTo=${encodeURIComponent('/host')}`}
+          className="inline-block mt-4 text-sunset hover:underline"
+        >
+          Sign in to manage your listings
+        </Link>
+      </div>
+    )
   }
 
   const listedProperties = myProperties ?? []
