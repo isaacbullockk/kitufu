@@ -434,7 +434,7 @@ function HostHeader() {
 /* ------------------------------------------------------------------ */
 function MyProperties() {
   const { formatPrice } = useCurrency()
-  const { data: myProperties, isLoading, error } = trpc.host.listMyProperties.useQuery()
+  const { data: myProperties, isLoading, error } = trpc.host.listMyProperties.useQuery(undefined, { retry: false })
 
   if (isLoading) {
     return <p className="py-12 text-center text-slate">Loading your properties...</p>
@@ -1007,7 +1007,7 @@ function HostProfile() {
 /* ------------------------------------------------------------------ */
 export default function Host() {
   const [activeTab, setActiveTab] = useState('properties')
-  const { data: myProperties } = trpc.host.listMyProperties.useQuery()
+  const { data: myProperties } = trpc.host.listMyProperties.useQuery(undefined, { retry: false })
 
   return (
     <div className="min-h-[100dvh] bg-warm-sand">
