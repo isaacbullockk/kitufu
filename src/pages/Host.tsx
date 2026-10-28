@@ -14,8 +14,6 @@ import {
   Clock,
   X,
   Phone,
-  Edit3,
-  Pause,
   ChevronDown,
   ChevronRight,
   Banknote,
@@ -29,6 +27,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { useCurrency } from '@/context/CurrencyContext'
+import { trpc } from '@/providers/trpc'
 
 /* ------------------------------------------------------------------ */
 /*  Animation helpers                                                  */
@@ -54,48 +53,6 @@ const cardStagger = {
 /* ------------------------------------------------------------------ */
 /*  Mock data                                                          */
 /* ------------------------------------------------------------------ */
-const properties = [
-  {
-    id: 1,
-    name: 'Kampala Central Hub',
-    location: 'Namboole, Kampala',
-    type: 'Converted Office Building',
-    image: '/property-kampala-1.jpg',
-    status: 'Active' as const,
-    upcomingBookings: 8,
-    occupancy: 78,
-    earned: 4200,
-    monthlyBookings: [5, 12, 8],
-    peakMonth: 'July (12 bookings)',
-  },
-  {
-    id: 2,
-    name: 'Hoima Fan Village',
-    location: 'Hoima City',
-    type: 'Converted Warehouse',
-    image: '/property-hoima-1.jpg',
-    status: 'Active' as const,
-    upcomingBookings: 4,
-    occupancy: 65,
-    earned: 1800,
-    monthlyBookings: [3, 8, 4],
-    peakMonth: 'July (8 bookings)',
-  },
-  {
-    id: 3,
-    name: 'Kireka Residence',
-    location: 'Kireka, Kampala',
-    type: 'Residential Conversion',
-    image: '/property-kampala-2.jpg',
-    status: 'Pending' as const,
-    upcomingBookings: 0,
-    occupancy: 0,
-    earned: 0,
-    monthlyBookings: [0, 0, 0],
-    peakMonth: 'N/A',
-  },
-]
-
 const calendarBookings = [
   { guest: 'Sarah Mensah', dates: 'Jun 15-22', room: 'Twin', status: 'Confirmed' as const, avatar: 'SM' },
   { guest: 'Chinedu Okafor', dates: 'Jun 16-23', room: 'Quad', status: 'Confirmed' as const, avatar: 'CO' },
@@ -163,15 +120,16 @@ const complianceCategories = [
 /* ------------------------------------------------------------------ */
 /*  Status Badge                                                       */
 /* ------------------------------------------------------------------ */
-function PropertyStatusBadge({ status }: { status: 'Active' | 'Pending' }) {
+function PropertyStatusBadge({ status }: { status: 'Active' | 'Pending' | 'Rejected' }) {
   const styles = {
     Active: 'bg-[#E8F5E9] text-[#27AE60]',
     Pending: 'bg-[#FFF8E1] text-[#F5A623]',
+    Rejected: 'bg-[#FFEBEE] text-[#C73E1D]',
   }
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}>
-      {status === 'Active' ? <Check size={10} /> : <Clock size={10} />}
-      {status === 'Pending' ? 'Pending UTB Approval' : status}
+      {status === 'Active' ? <Check size={10} /> : status === 'Pending' ? <Clock size={10} /> : <X size={10} />}
+      {status === 'Pending' ? 'Pending review' : status}
     </span>
   )
 }
@@ -188,30 +146,6 @@ function BookingStatusBadge({ status }: { status: 'Confirmed' | 'Pending' | 'Can
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}>
       {status}
     </span>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/*  Mini Bar Chart (SVG based)                                         */
-/* ------------------------------------------------------------------ */
-function MiniBarChart({ data, color = '#FF6B35' }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1)
-  const labels = ['Jun', 'Jul', 'Aug']
-  return (
-    <div className="flex items-end gap-3 h-16">
-      {data.map((v, i) => (
-        <div key={i} className="flex flex-col items-center gap-1 flex-1">
-          <motion.div
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ delay: i * 0.04 + 0.3, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number] }}
-            className="w-full rounded-t-md origin-bottom"
-            style={{ height: `${(v / max) * 48}px`, backgroundColor: color }}
-          />
-          <span className="text-[10px] text-slate">{labels[i]}</span>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -480,9 +414,9 @@ function HostHeader() {
           transition={{ delay: 0.4, duration: 0.4 }}
           className="flex flex-wrap gap-3 mt-6"
         >
-          <button className="bg-white text-deep-forest hover:bg-warm-sand px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+          <Link to="/add-property" className="bg-white text-deep-forest hover:bg-warm-sand px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
             <Plus size={16} /> Add New Property
-          </button>
+          </Link>
           <button className="bg-transparent text-white border-2 border-white/60 hover:bg-white/10 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
             <Download size={16} /> Download Earnings Report
           </button>
@@ -500,15 +434,42 @@ function HostHeader() {
 /* ------------------------------------------------------------------ */
 function MyProperties() {
   const { formatPrice } = useCurrency()
+  const { data: myProperties, isLoading, error } = trpc.host.listMyProperties.useQuery()
+
+  if (isLoading) {
+    return <p className="py-12 text-center text-slate">Loading your properties...</p>
+  }
+
+  if (error) {
+    return <p role="alert" className="py-12 text-center text-red-600">{error.message}</p>
+  }
+
+  const listedProperties = myProperties ?? []
+  const pendingCount = listedProperties.filter((property) => property.status === 'pending').length
+  const approvedCount = listedProperties.filter((property) => property.status === 'approved').length
+
   return (
     <div>
       <div className="mb-6">
         <h2 className="font-display font-bold text-2xl text-deep-forest">Your Properties</h2>
-        <p className="text-slate text-sm mt-1">3 properties listed &bull; 2 active &bull; 1 pending approval</p>
+        <p className="text-slate text-sm mt-1">
+          {listedProperties.length} {listedProperties.length === 1 ? 'property' : 'properties'} listed
+          {' \u2022 '}{approvedCount} approved{' \u2022 '}{pendingCount} pending review
+        </p>
       </div>
 
       <div className="flex flex-col gap-6">
-        {properties.map((p, i) => (
+        {listedProperties.map((p, i) => {
+          let image = ''
+          try {
+            const images: unknown = JSON.parse(p.images || '[]')
+            if (Array.isArray(images) && typeof images[0] === 'string') image = images[0]
+          } catch {
+            image = ''
+          }
+          const status = p.status === 'approved' ? 'Active' : p.status === 'rejected' ? 'Rejected' : 'Pending'
+
+          return (
           <motion.div
             key={p.id}
             custom={i}
@@ -516,95 +477,58 @@ function MyProperties() {
             initial="hidden"
             animate="visible"
             className={`bg-white border rounded-xl overflow-hidden ${
-              p.status === 'Pending' ? 'border-l-4 border-l-savanna-gold border-light-grey' : 'border-light-grey'
+              status === 'Pending' ? 'border-l-4 border-l-savanna-gold border-light-grey' : 'border-light-grey'
             }`}
           >
-            {/* Top row */}
             <div className="p-4 md:p-5 flex flex-col md:flex-row gap-4">
-              <img
-                src={p.image}
-                alt={p.name}
-                className="w-full md:w-[120px] h-[90px] object-cover rounded-lg shrink-0"
-              />
+              {image ? (
+                <img src={image} alt={p.title} className="w-full md:w-[120px] h-[90px] object-cover rounded-lg shrink-0" />
+              ) : (
+                <div className="w-full md:w-[120px] h-[90px] rounded-lg bg-cream flex items-center justify-center shrink-0">
+                  <Building size={24} className="text-slate" />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
                   <div>
-                    <h3 className="font-display font-semibold text-lg text-deep-forest">{p.name}</h3>
+                    <h3 className="font-display font-semibold text-lg text-deep-forest">{p.title}</h3>
                     <div className="flex items-center gap-1 text-slate text-sm mt-1">
                       <MapPin size={14} className="shrink-0" />
                       <span>{p.location}</span>
                     </div>
-                    <div className="text-xs text-slate mt-1">{p.type}</div>
                     <div className="mt-2">
-                      <PropertyStatusBadge status={p.status} />
+                      <PropertyStatusBadge status={status} />
                     </div>
                   </div>
-                  {p.status === 'Active' && (
-                    <div className="text-sm space-y-1 md:text-right">
-                      <div className="text-slate">{p.upcomingBookings} upcoming bookings</div>
-                      <div className="text-slate">{p.occupancy}% occupancy (Jun-Aug)</div>
-                      <div className="text-sunset font-semibold">{formatPrice(Math.round(p.earned / 0.00027))} earned</div>
-                    </div>
-                  )}
+                  <div className="text-sm md:text-right">
+                    <div className="font-semibold text-deep-forest">{formatPrice(p.pricePerNight)} / night</div>
+                    <div className="text-slate">{p.capacity} guest capacity</div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Performance mini-chart for active properties */}
-            {p.status === 'Active' && (
-              <>
-                <Separator />
-                <div className="px-4 md:px-5 py-3 flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="w-full md:w-40">
-                    <MiniBarChart data={p.monthlyBookings} />
-                  </div>
-                  <span className="text-xs text-slate">Peak: {p.peakMonth}</span>
-                </div>
-              </>
-            )}
-
             <Separator />
-
-            {/* Actions */}
             <div className="px-4 md:px-5 py-3 flex flex-wrap gap-4">
-              <button className="flex items-center gap-1.5 text-sm text-slate hover:text-sunset transition-colors">
+              <Link to={`/property/${p.id}`} className="flex items-center gap-1.5 text-sm text-slate hover:text-sunset transition-colors">
                 <ChevronRight size={14} /> View Details
-              </button>
-              <button className="flex items-center gap-1.5 text-sm text-slate hover:text-sunset transition-colors">
-                <Edit3 size={14} /> Edit Listing
-              </button>
-              {p.status === 'Active' ? (
-                <button className="flex items-center gap-1.5 text-sm text-earth-red hover:text-[#a33218] transition-colors">
-                  <Pause size={14} /> Pause Bookings
-                </button>
-              ) : (
-                <>
-                  <button className="flex items-center gap-1.5 text-sm text-sunset hover:text-deep-forest transition-colors font-medium">
-                    <Shield size={14} /> Complete Compliance
-                  </button>
-                  <button className="flex items-center gap-1.5 text-sm text-slate hover:text-sunset transition-colors">
-                    <Phone size={14} /> Contact Support
-                  </button>
-                </>
-              )}
-              <button className="flex items-center gap-1.5 text-sm text-slate hover:text-sunset transition-colors">
-                <Calendar size={14} /> View Calendar
-              </button>
+              </Link>
             </div>
           </motion.div>
-        ))}
+          )
+        })}
 
-        {/* Add Property Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
+        {listedProperties.length === 0 && (
+          <p className="py-8 text-center text-slate">You have not listed a property yet.</p>
+        )}
+        <Link
+          to="/add-property"
           className="border-2 border-dashed border-light-grey rounded-xl p-8 flex flex-col items-center text-center hover:border-sunset transition-colors cursor-pointer group"
         >
           <Plus size={32} className="text-light-grey group-hover:text-sunset transition-colors mb-3" />
           <h4 className="font-display font-semibold text-slate group-hover:text-sunset transition-colors">List a New Property</h4>
           <p className="text-sm text-slate mt-1">Convert your empty building into AFCON revenue</p>
-        </motion.div>
+        </Link>
       </div>
     </div>
   )
@@ -1073,6 +997,7 @@ function HostProfile() {
 /* ------------------------------------------------------------------ */
 export default function Host() {
   const [activeTab, setActiveTab] = useState('properties')
+  const { data: myProperties } = trpc.host.listMyProperties.useQuery()
 
   return (
     <div className="min-h-[100dvh] bg-warm-sand">
@@ -1084,7 +1009,7 @@ export default function Host() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full justify-start h-auto p-0 bg-transparent gap-0 overflow-x-auto scrollbar-hide">
               {[
-                { value: 'properties', label: 'My Properties', icon: Building, badge: '3' },
+                { value: 'properties', label: 'My Properties', icon: Building, badge: myProperties ? String(myProperties.length) : undefined },
                 { value: 'bookings', label: 'Bookings', icon: Calendar, badge: '12' },
                 { value: 'earnings', label: 'Earnings', icon: DollarSign },
                 { value: 'compliance', label: 'Compliance', icon: Shield, badge: '2' },

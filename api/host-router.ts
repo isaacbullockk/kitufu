@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { authedQuery, createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { hostProfiles, properties } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -87,15 +87,14 @@ export const hostRouter = createRouter({
     }),
 
   // List host's properties
-  listMyProperties: publicQuery
-    .input(z.object({ ownerId: z.number().positive() }))
-    .query(async ({ input }) => {
+  listMyProperties: authedQuery
+    .query(async ({ ctx }) => {
       try {
         const db = getDb();
         return db
           .select()
           .from(properties)
-          .where(eq(properties.ownerId, input.ownerId))
+          .where(eq(properties.ownerId, ctx.user.id))
           .orderBy(desc(properties.createdAt));
       } catch (err: any) {
         throw new TRPCError({

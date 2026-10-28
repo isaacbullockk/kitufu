@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createRouter, publicQuery } from "./middleware";
+import { authedQuery, createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { properties, bookings } from "@db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -79,12 +79,13 @@ export const propertyRouter = createRouter({
     }),
 
   // Create a new property listing
-  create: publicQuery
+  create: authedQuery
     .input(
       z.object({
         title: z.string().min(3, "Title must be at least 3 characters").max(255),
         description: z.string().min(10, "Description must be at least 10 characters"),
         location: z.string().min(1, "Location is required"),
+        address: z.string().optional(),
         pricePerNight: z.number().positive("Price must be positive"),
         capacity: z.number().positive("Capacity must be positive"),
         bedrooms: z.number().min(0).default(0),
@@ -95,22 +96,15 @@ export const propertyRouter = createRouter({
         hasShuttle: z.boolean().default(false),
         isGroupFriendly: z.boolean().default(false),
         distanceToStadium: z.string().optional(),
-        ownerId: z.number().positive(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const db = getDb();
 
-        // Validate owner exists
-        const owner = await db
-          .select({ id: sql<number>`1` })
-          .from(sql`users`)
-          .where(sql`id = ${input.ownerId}`)
-          .limit(1);
-
         const result = await db.insert(properties).values({
           ...input,
+          ownerId: ctx.user.id,
           status: "pending",
           amenities: input.amenities || "[]",
           images: input.images || "[]",

@@ -70,14 +70,16 @@ const defaultForm: FormData = {
 
 export default function AddProperty() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isLoading: isAuthLoading } = useAuth()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormData>(defaultForm)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showDraftPrompt, setShowDraftPrompt] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploadingImages, setIsUploadingImages] = useState(false)
   const [success, setSuccess] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const uploadImage = trpc.upload.image.useMutation()
 
   const createProperty = trpc.property.create.useMutation({
     onSuccess: () => {
@@ -89,6 +91,12 @@ export default function AddProperty() {
       setIsSubmitting(false)
     },
   })
+
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      navigate(`/login?returnTo=${encodeURIComponent("/add-property")}`, { replace: true })
+    }
+  }, [isAuthLoading, navigate, user])
 
   // Load draft on mount
   useEffect(() => {
@@ -158,27 +166,59 @@ export default function AddProperty() {
 
   const back = () => setStep((s) => Math.max(s - 1, 0))
 
+  const handleFiles = useCallback(async (files: File[]) => {
+    const availableSlots = Math.max(0, 10 - form.images.length)
+    const validFiles = files.filter((file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024)
+    if (validFiles.length < files.length) {
+      setErrors((prev) => ({ ...prev, images: "Choose image files no larger than 5MB each." }))
+    }
+    if (validFiles.length > availableSlots) {
+      setErrors((prev) => ({ ...prev, images: "You can upload up to 10 photos." }))
+    }
+    const filesToUpload = validFiles.slice(0, availableSlots)
+    if (filesToUpload.length === 0) return
+
+    setIsUploadingImages(true)
+    try {
+      const uploadedImages = await Promise.all(filesToUpload.map((file) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error(`Could not read ${file.name}.`))
+        reader.onload = async () => {
+          if (typeof reader.result !== "string") {
+            reject(new Error(`Could not read ${file.name}.`))
+            return
+          }
+          try {
+            const result = await uploadImage.mutateAsync({ file: reader.result, filename: file.name })
+            if (result.url.startsWith("data:")) {
+              throw new Error("Photo storage is not configured. Please contact Kitufu support before submitting a listing.")
+            }
+            resolve(result.url)
+          } catch (error) {
+            reject(error)
+          }
+        }
+        reader.readAsDataURL(file)
+      })))
+
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedImages].slice(0, 10) }))
+      setErrors((prev) => ({ ...prev, images: "" }))
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        images: error instanceof Error ? error.message : "Photo upload failed. Please try again.",
+      }))
+    } finally {
+      setIsUploadingImages(false)
+    }
+  }, [form.images.length, uploadImage.mutateAsync])
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
-    handleFiles(files)
-  }, [])
-
-  const handleFiles = (files: File[]) => {
-    files.forEach((file) => {
-      if (form.images.length >= 10) return
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        if (result) {
-          setForm((prev) => ({ ...prev, images: [...prev.images, result] }))
-        }
-      }
-      reader.readAsDataURL(file)
-    })
-  }
+    void handleFiles(Array.from(e.dataTransfer.files))
+  }, [handleFiles])
 
   const removeImage = (idx: number) => {
     setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }))
@@ -186,11 +226,17 @@ export default function AddProperty() {
 
   const submit = () => {
     if (!validateStep(2)) return
+    if (form.images.some((image) => image.startsWith("data:"))) {
+      setErrors((prev) => ({ ...prev, images: "Please remove and re-upload photos before submitting." }))
+      setStep(1)
+      return
+    }
     setIsSubmitting(true)
     createProperty.mutate({
       title: form.title,
       description: form.description,
       location: form.location,
+      address: form.address,
       pricePerNight: Number(form.pricePerNight),
       capacity: form.capacity,
       bedrooms: form.bedrooms,
@@ -201,7 +247,6 @@ export default function AddProperty() {
       hasShuttle: form.hasShuttle,
       isGroupFriendly: form.isGroupFriendly,
       distanceToStadium: form.distanceToStadium,
-      ownerId: user?.id ? Number(user.id) : 1,
     })
   }
 
@@ -222,7 +267,7 @@ export default function AddProperty() {
             Property Submitted!
           </h1>
           <p className="text-slate mb-6">
-            Your property is now live and ready for bookings. Manage it from your Host Dashboard.
+            Your property has been submitted and is waiting for review. You can track its status from your Host Dashboard.
           </p>
           <button
             onClick={() => navigate("/host")}
@@ -233,6 +278,10 @@ export default function AddProperty() {
         </motion.div>
       </div>
     )
+  }
+
+  if (isAuthLoading || !user) {
+    return <div className="min-h-screen flex items-center justify-center text-slate">Checking your account...</div>
   }
 
   return (
@@ -464,10 +513,11 @@ export default function AddProperty() {
                   <p className="text-xs text-slate mt-3">
                     Up to 10 images. JPG, PNG, WebP. Max 5MB each.
                   </p>
+                  {isUploadingImages && <p role="status" className="text-sm text-deep-forest mt-3">Uploading photos...</p>}
                 </div>
 
                 {errors.images && (
-                  <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+                  <p role="alert" className="text-red-500 text-xs mt-2 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" /> {errors.images}
                   </p>
                 )}
@@ -757,7 +807,8 @@ export default function AddProperty() {
             {step < 3 ? (
               <button
                 onClick={next}
-                className="flex items-center gap-2 px-6 py-2.5 bg-deep-forest text-white rounded-lg font-body text-sm hover:bg-opacity-90 transition-colors"
+                disabled={isUploadingImages}
+                className="flex items-center gap-2 px-6 py-2.5 bg-deep-forest text-white rounded-lg font-body text-sm hover:bg-opacity-90 transition-colors disabled:opacity-50"
               >
                 Next <ChevronRight className="w-4 h-4" />
               </button>
@@ -787,6 +838,11 @@ export default function AddProperty() {
               </div>
             )}
           </div>
+          {createProperty.error && (
+            <p role="alert" className="px-6 sm:px-8 pb-5 text-sm text-red-600">
+              {createProperty.error.message}
+            </p>
+          )}
         </div>
       </div>
     </div>
